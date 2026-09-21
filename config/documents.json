@@ -1,0 +1,18 @@
+[
+  {
+    "id": "doc1",
+    "text": "Parking Code PC-101: Vehicles parked in designated loading bays without a valid permit between 7am and 7pm on weekdays will receive a fine of $70. Loading bays are reserved for commercial vehicles actively loading or unloading goods."
+  },
+  {
+    "id": "doc2",
+    "text": "Public Transport Circular PT-204: Concession card holders (students, seniors, persons with disabilities) are entitled to a 50% fare discount on all public buses and trains, provided the card is tapped at both entry and exit points."
+  },
+  {
+    "id": "doc3",
+    "text": "Road Safety Code RS-315: Cyclists must use designated cycling paths where available. Where no cycling path exists, cyclists may use the leftmost lane of the road, keeping as close to the kerb as safely possible."
+  },
+  {
+    "id": "doc4",
+    "text": "Vehicle Registration Notice VR-089: All vehicle registrations must be renewed annually. A grace period of 14 days is granted after expiry before penalties apply. Renewal can be completed online or at any registration office."
+  }
+]
