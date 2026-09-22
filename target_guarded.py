@@ -16,7 +16,7 @@ Run:
 from guardrails import Guard
 from guardrails_ai.detect_system_prompt_leakage import DetectSystemPromptLeakage
 
-from vulnerable_target import build_vector_store, load_documents, load_system_prompt, chat
+from target_unguarded import build_vector_store, load_documents, load_system_prompt, chat
 
 
 def build_guard(system_prompt: str) -> Guard:
