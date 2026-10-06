@@ -1,0 +1,28 @@
+# NVIDIA NeMo Guardrails config for the AskDBC-Demo target.
+# Uses only NeMo's built-in rails (no custom code):
+#   - self check input : LLM-based input rail, prompt in prompts.yml
+#   - regex check output : deterministic output rail for the planted secret
+# target/guard.py loads this and injects the real system prompt (with the secret),
+# so the secret is not stored here. The regex pattern below does contain it, as
+# any literal-match rail must.
+colang_version: "1.0"
+
+models:
+  - type: main
+    engine: ollama
+    model: llama3.1:8b
+
+rails:
+  input:
+    flows:
+      - self check input
+  output:
+    flows:
+      - regex check output
+  config:
+    regex_detection:
+      output:
+        case_insensitive: true
+        patterns:
+          # Literal secret, tolerating separators/spacing the model might add.
+          - "ABC\\W*SECRET\\W*4321"

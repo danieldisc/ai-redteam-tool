@@ -1,0 +1,2 @@
+# PyRIT environment (venv-pyrit). Python 3.12.
+pyrit==1.1.0
