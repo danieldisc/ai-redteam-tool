@@ -1,0 +1,18 @@
+{
+  "garak.r1|unguarded": {
+    "labelled": 25,
+    "succeeded": 1,
+    "failed": 23,
+    "ambiguous": 1,
+    "population": 1740,
+    "seed": 1
+  },
+  "garak.r1|guarded": {
+    "labelled": 25,
+    "succeeded": 0,
+    "failed": 25,
+    "ambiguous": 0,
+    "population": 1740,
+    "seed": 1
+  }
+}

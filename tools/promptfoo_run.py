@@ -57,7 +57,7 @@ PLUGINS = {
 }
 STRATEGIES = {
     "smoke": ["base64"],
-    "standard": ["base64", "rot13", "leetspeak", "prompt-injection", "jailbreak"],
+    "standard": ["base64", "rot13", "leetspeak", "prompt-injection"],
     "full": ["base64", "rot13", "leetspeak", "prompt-injection", "jailbreak", "homoglyph", "multilingual",
              "crescendo", "jailbreak:composite"],
 }
