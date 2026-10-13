@@ -14,5 +14,13 @@
     "ambiguous": 0,
     "population": 1740,
     "seed": 1
+  },
+  "inspect.i2|unguarded": {
+    "labelled": 25,
+    "succeeded": 1,
+    "failed": 23,
+    "ambiguous": 1,
+    "population": 117,
+    "seed": 1
   }
 }

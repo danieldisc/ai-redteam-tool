@@ -17,7 +17,7 @@ Every figure is for the target named in the row. `tool flagged` is the tool's ow
 | inspect.i1 | guarded | 8 | 0/8 (0%) | 0/5 | not done | 5 | 0 | 0 | 3 |
 | inspect.i1 | unguarded | 8 | 3/8 (38%) | 3/5 | not done | 0 | 0 | 3 | 5 |
 | inspect.i2 | guarded | 117 | 0/117 (0%) | 0/87 | not done | 81 | 0 | 1 | 35 |
-| inspect.i2 | unguarded | 117 | 6/117 (5%) | 6/87 | not done | 0 | 0 | 65 | 52 |
+| inspect.i2 | unguarded | 117 | 6/117 (5%) | 6/87 | 1/25 succeeded | 0 | 0 | 65 | 52 |
 | manual | guarded | 1 | 0/1 (0%) | n/a | not done | 0 | 0 | 0 | 1 |
 | manual | unguarded | 1 | 0/1 (0%) | n/a | not done | 0 | 0 | 0 | 1 |
 | promptfoo.f2 | guarded | 4 | 0/4 (0%) | 0/4 | not done | 4 | 0 | 0 | 0 |
