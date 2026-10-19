@@ -30,7 +30,7 @@ def pyrit_python() -> str:
     for rel in ("venv-pyrit/Scripts/python.exe", "venv-pyrit/bin/python"):
         if (ROOT / rel).exists():
             return str(ROOT / rel)
-    raise SystemExit("PyRIT environment not found. Create it (see README, 'PyRIT environment') or set PYRIT_PYTHON.")
+    raise SystemExit("PyRIT environment not found. Create it (see README, 'Setup') or set PYRIT_PYTHON.")
 
 
 def run(target, tag, tier, url, outdir: Path, seed=1, yes=False) -> dict:

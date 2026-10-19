@@ -130,21 +130,19 @@ document. Unbounded consumption is only touched by Garak's `divergence` probe.
 
 ## Verification status
 
-The plumbing was tested end to end in a sandbox **with a fake model** (no Ollama there): the server and its
-log, NeMo rail detection (input rail, output rail), the canary check, `run.py` with all six runners, `report/analyse.py`,
-`report/audit.py --show`, and the tool wiring for Garak 0.17, Inspect AI, Giskard (deterministic checks only),
-PyRIT 1.1.0 single-turn attacks, and Promptfoo (generation and evaluation against a mock Ollama).
+Real runs against Llama 3.1 8B (guarded and unguarded) exist for `baseline`, Garak, Promptfoo and Inspect AI at the
+`standard` tier. Their numbers are in `results/summary.md` and the hand labels in `results/audit/`; notes are in
+`results/findings.md`.
 
-**Not yet verified on a real model, and no attack numbers exist yet:**
+**Smoke tests only, no attack numbers yet:**
 
-- every real run against Llama 3.1 8B, guarded or unguarded;
-- the Giskard LLM-judge checks (`Groundedness`, `LLMJudge`) and the Promptfoo generation and grading quality
-  with the local model;
-- PyRIT `RedTeamingAttack` and `CrescendoAttack`: they need the attacker model to reply in JSON, which a stub
-  could not do, so they are written against PyRIT's 1.1.0 signatures but have not run;
-- anything on Windows, including whether NeMo still crashes on exit (the server leaves with `os._exit(0)` after
-  the log is written, so it should not matter).
+- Giskard (7 requests per target; the LLM-judge checks have not been audited);
+- PyRIT single-turn attacks (8 requests per target);
+- PyRIT `RedTeamingAttack` and `CrescendoAttack`: they need the attacker model to reply in JSON, so they are written
+  against PyRIT's 1.1.0 signatures but have not run.
+
+The plumbing (server and log, NeMo rail detection, canary check, `run.py`, `report/analyse.py`, `report/audit.py`)
+was first tested in a sandbox with a fake model (`server.py --stub`); stub rows are excluded from reports.
 
 Earlier Week 7-8 results (Garak about 20% genuine, Giskard about 30%, Inspect AI 60% over five runs, NeMo
-leaks 10/21 unguarded and 0/21 guarded) are not carried over; they were removed with the old repo and will be
-re-measured here. They remain in git history.
+leaks 10/21 unguarded and 0/21 guarded) were not carried over; they remain in git history.

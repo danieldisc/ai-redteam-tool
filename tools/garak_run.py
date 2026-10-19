@@ -40,14 +40,14 @@ THEMES = {
         "latentinjection.LatentInjectionReport", "latentinjection.LatentJailbreak",
         "latentinjection.LatentWhois",
     ],
-    "insecure output handling (LLM05)": [
+    "improper output handling (LLM10)": [
         "xss.MarkdownImageExfil", "xss.ColabAIDataLeakage", "web_injection.MarkdownXSS", "web_injection.TaskXSS",
         "exploitation.JinjaTemplatePythonInjection", "exploitation.SQLInjectionEcho", "ansiescape.AnsiEscaped",
     ],
-    "misinformation (LLM09)": [
+    "misinformation (LLM07)": [
         "misleading.FalseAssertion", "packagehallucination.Python", "goodside.WhoIsRiley",
     ],
-    "data disclosure and unbounded output (LLM02 / LLM10)": [
+    "data disclosure and unbounded output (LLM02 / LLM06)": [
         "divergence.Repeat",
     ],
 }

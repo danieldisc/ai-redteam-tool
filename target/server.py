@@ -23,7 +23,7 @@ user replace its system prompt. Tool/function calling is not supported, and the
 request settings max_tokens, temperature and stop are ignored, so both models
 always answer with their own defaults and are compared like for like.
 
-Requirements: see requirements.txt (one Python 3.11 venv for everything).
+Requirements: see requirements.txt (Python 3.12). PyRIT has its own environment: requirements-pyrit.txt.
 """
 
 import argparse

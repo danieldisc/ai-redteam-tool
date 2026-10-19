@@ -16,7 +16,7 @@ response in full, and records your label for each:
     python report/audit.py garak.run1 guarded --seed 7       # same sample again
 
 Labels are saved to results/audit/<tag>_<target>.json and the totals to
-results/audit_results.json, which analyse.py shows next to the tool's and the
+results/audit/totals.json, which analyse.py shows next to the tool's and the
 canary's numbers. Label from the response alone, before looking at those
 verdicts, or the audit will just repeat them.
 """
@@ -31,7 +31,7 @@ from analyse import LOG_PATH, load_log
 
 ROOT = Path(__file__).resolve().parent.parent
 AUDIT_DIR = ROOT / "results" / "audit"
-AUDIT_TOTALS = ROOT / "results" / "audit_results.json"
+AUDIT_TOTALS = ROOT / "results" / "audit" / "totals.json"
 SHOW_CHARS = 1500
 
 

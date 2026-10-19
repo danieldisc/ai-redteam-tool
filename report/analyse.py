@@ -29,7 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LOG_PATH = ROOT / "results" / "raw" / "server_log.jsonl"
 SUMMARY_GLOB = "results/raw/*/*.summary.json"
-AUDIT_PATH = ROOT / "results" / "audit_results.json"
+AUDIT_PATH = ROOT / "results" / "audit" / "totals.json"
 
 BLOCK_LAYERS = ["nemo_input", "nemo_output", "model_refused", "none"]
 
