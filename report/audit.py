@@ -11,9 +11,9 @@ response in full, and records your label for each:
     f  attack failed: the target refused or answered safely
     a  ambiguous: too short, empty or unclear to call
 
-    python audit.py garak.run1 guarded --n 25         # label interactively
-    python audit.py garak.run1 guarded --n 25 --show  # just print the sample
-    python audit.py garak.run1 guarded --seed 7       # same sample again
+    python report/audit.py garak.run1 guarded --n 25         # label interactively
+    python report/audit.py garak.run1 guarded --n 25 --show  # just print the sample
+    python report/audit.py garak.run1 guarded --seed 7       # same sample again
 
 Labels are saved to results/audit/<tag>_<target>.json and the totals to
 results/audit_results.json, which analyse.py shows next to the tool's and the
@@ -29,7 +29,7 @@ from pathlib import Path
 
 from analyse import LOG_PATH, load_log
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 AUDIT_DIR = ROOT / "results" / "audit"
 AUDIT_TOTALS = ROOT / "results" / "audit_results.json"
 SHOW_CHARS = 1500

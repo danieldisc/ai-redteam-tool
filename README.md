@@ -41,8 +41,8 @@ target/        the chatbot and the server
 attacks/       the written leak prompts and the legitimate questions (small, shared)
 tools/         one runner per tool (garak, giskard, inspect, pyrit, promptfoo) plus baseline
 run.py         run one tool against one target
-analyse.py     summarise the server log, side by side with each tool's own numbers
-audit.py       sample real replies and label them by hand
+report/        after a run: analyse.py (summarise the server log beside each tool's own numbers),
+               audit.py (sample real replies, label by hand), garak_hitlog.py (browse Garak hits)
 results/       summary.md and hand labels are kept; raw output (results/raw/) is git-ignored
 ```
 
@@ -80,15 +80,15 @@ Terminal 2, one tool at a time. Run `smoke` first and read the replies before ru
 python run.py baseline --target both --tier smoke     # the written prompts: leaks and false refusals
 python run.py garak    --target unguarded --tier smoke
 python run.py garak    --target guarded   --tier smoke
-python audit.py garak.<label> guarded --show          # read what the target actually said
+python report/audit.py garak.<label> guarded --show          # read what the target actually said
 python run.py garak    --target both --tier standard --run r1
-python analyse.py --out results/summary.md
+python report/analyse.py --out results/summary.md
 ```
 
 Tools: `baseline`, `garak`, `giskard`, `inspect`, `pyrit`, `promptfoo`. Tiers: `smoke` (prove the wiring),
 `standard` (the curated set, repeated), `full` (everything the curated set has, more repeats). Each run prints
 roughly how many requests it will send and asks before starting. Repeat a run with a new `--run` label to get
-more samples. To label a sample by hand: `python audit.py garak.r1 guarded --n 25`.
+more samples. To label a sample by hand: `python report/audit.py garak.r1 guarded --n 25`.
 
 The excessive-agency test from the earlier work (a mock tool call) talks to the **bare model**, not the target,
 because the target has no tool calling. Run it separately and report it as bare-model only:
@@ -126,13 +126,13 @@ document. Unbounded consumption is only touched by Garak's `divergence` probe.
   (data stays on this machine), so some plugins or strategies are skipped or weaker. Read the notes in each run's
   output for what was skipped.
 - **Retrieved documents are not checked by any rail.** A poisoned document reaches the model unfiltered.
-- **The input rail costs a second model call.** Compare latency and false refusals in `analyse.py`.
+- **The input rail costs a second model call.** Compare latency and false refusals in `report/analyse.py`.
 
 ## Verification status
 
 The plumbing was tested end to end in a sandbox **with a fake model** (no Ollama there): the server and its
-log, NeMo rail detection (input rail, output rail), the canary check, `run.py` with all six runners, `analyse.py`,
-`audit.py --show`, and the tool wiring for Garak 0.17, Inspect AI, Giskard (deterministic checks only),
+log, NeMo rail detection (input rail, output rail), the canary check, `run.py` with all six runners, `report/analyse.py`,
+`report/audit.py --show`, and the tool wiring for Garak 0.17, Inspect AI, Giskard (deterministic checks only),
 PyRIT 1.1.0 single-turn attacks, and Promptfoo (generation and evaluation against a mock Ollama).
 
 **Not yet verified on a real model, and no attack numbers exist yet:**

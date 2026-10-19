@@ -2,9 +2,9 @@
 Pretty-print a Garak hitlog.jsonl file for manual review.
 
 Usage:
-    python tools/garak_hitlog.py results/raw/garak/garak_..._hitlog.jsonl
-    python tools/garak_hitlog.py results/raw/garak/garak_..._hitlog.jsonl --probe dan.DanInTheWild
-    python tools/garak_hitlog.py results/raw/garak/garak_..._hitlog.jsonl --limit 20 --sample
+    python report/garak_hitlog.py results/raw/garak/garak_..._hitlog.jsonl
+    python report/garak_hitlog.py results/raw/garak/garak_..._hitlog.jsonl --probe dan.DanInTheWild
+    python report/garak_hitlog.py results/raw/garak/garak_..._hitlog.jsonl --limit 20 --sample
 """
 
 import argparse

@@ -10,7 +10,7 @@ Tiers:
 
 Garak's own verdicts come from per-probe detectors. Some are string matches;
 some are weak, and earlier work found about 44% of one probe's "hits" were
-false positives. Always compare with the canary column in analyse.py and
+false positives. Always compare with the canary column in report/analyse.py and
 audit a sample.
 
 Probes whose detectors download a model from huggingface.co (toxicity, some

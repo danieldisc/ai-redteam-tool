@@ -14,9 +14,9 @@ The target server must already be running (python target/server.py). Each run
 is tagged <tool>.<run label>; the label defaults to the date and time and must be new
 for each run (so each tag in the log matches one run). After the
 run, a summary is saved to results/raw/<tool>/<tag>_<target>.summary.json and
-`python analyse.py` shows the target's side of it from the server log.
+`python report/analyse.py` shows the target's side of it from the server log.
 
-Run smoke first, read the responses (python audit.py <tag> <target> --show),
+Run smoke first, read the responses (python report/audit.py <tag> <target> --show),
 and only then run standard.
 """
 
@@ -82,7 +82,7 @@ def main():
             print(f"  note: {note}")
         print(f"  saved {path.relative_to(ROOT)}")
 
-    print(f"\nNext: python analyse.py --tool {args.tool}    and    python audit.py {tag} <target> --show")
+    print(f"\nNext: python report/analyse.py --tool {args.tool}    and    python report/audit.py {tag} <target> --show")
 
 
 if __name__ == "__main__":

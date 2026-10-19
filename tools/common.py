@@ -4,7 +4,7 @@
 
 and returns a summary with at least: tool, tag, target, tier, attempted,
 tool_flagged, and a notes list. run.py saves that as
-results/raw/<tool>/<tag>.summary.json for analyse.py.
+results/raw/<tool>/<tag>_<target>.summary.json for report/analyse.py.
 """
 
 import json

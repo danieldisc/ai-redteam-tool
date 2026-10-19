@@ -1,9 +1,9 @@
 """
 Summarise what the target actually did, from the server log.
 
-    python analyse.py                      # print the summary
-    python analyse.py --out results/summary.md
-    python analyse.py --tool garak --since 2026-10-06T09:00:00
+    python report/analyse.py                      # print the summary
+    python report/analyse.py --out results/summary.md
+    python report/analyse.py --tool garak --since 2026-10-06T09:00:00
 
 The server log (results/raw/server_log.jsonl) is the ground truth: it holds
 every request any tool sent and what the target replied, whatever the tool
@@ -26,7 +26,7 @@ import json
 from collections import Counter, defaultdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 LOG_PATH = ROOT / "results" / "raw" / "server_log.jsonl"
 SUMMARY_GLOB = "results/raw/*/*.summary.json"
 AUDIT_PATH = ROOT / "results" / "audit_results.json"
