@@ -14,11 +14,11 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MODELS = {"unguarded": "askdbc-unguarded", "guarded": "askdbc-guarded"}
 
 
 def model_for(target: str) -> str:
-    return MODELS[target]
+    """The server model name for a guardrail id, e.g. blocklist -> askdbc-blocklist."""
+    return f"askdbc-{target}"
 
 
 def base_url(url: str, tag: str) -> str:

@@ -49,7 +49,7 @@ def show(i: int, n: int, row: dict) -> None:
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("tag", help="Tool run tag, e.g. garak.run1 (see the tag column in analyse.py)")
-    parser.add_argument("target", choices=["unguarded", "guarded"])
+    parser.add_argument("target", help="guardrail id the run used, e.g. unguarded, guarded, blocklist, doccheck")
     parser.add_argument("--n", type=int, default=25, help="Sample size (default 25)")
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--show", action="store_true", help="Print the sample and stop (no labelling)")

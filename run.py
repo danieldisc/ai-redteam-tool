@@ -6,7 +6,8 @@ Run one attack tool against one target.
     python run.py baseline  --target both      --tier smoke
 
 Tools: baseline (built-in prompts), garak, giskard, inspect, pyrit, promptfoo
-Targets: unguarded, guarded, or both (one after the other)
+Targets: a guardrail id from the server (unguarded, guarded = NeMo, blocklist, doccheck), several
+         separated by commas, `both` (unguarded and guarded) or `all`; run one after the other
 Tiers: smoke (prove the wiring, about 10-40 requests), standard (the curated set),
        full (everything the curated set has, uncapped, more repeats)
 
@@ -39,10 +40,24 @@ for _var in ("DO_NOT_TRACK", "GISKARD_TELEMETRY_DISABLED", "PROMPTFOO_DISABLE_TE
 TOOLS = ["baseline", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
 
 
+def pick_targets(choice: str, available: list[str]) -> list[str]:
+    """Turn --target into a list of guardrail ids, checked against what the server offers."""
+    if choice == "both":
+        return ["unguarded", "guarded"]
+    if choice == "all":
+        return available
+    targets = choice.split(",")
+    unknown = [t for t in targets if t not in available]
+    if unknown:
+        sys.exit(f"Unknown target {', '.join(unknown)}. The server offers: {', '.join(available)} (also both, all).")
+    return targets
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("tool", choices=TOOLS)
-    parser.add_argument("--target", choices=["unguarded", "guarded", "both"], required=True)
+    parser.add_argument("--target", required=True,
+                        help="guardrail id, comma-separated ids, both (unguarded + guarded) or all (as offered by the server)")
     parser.add_argument("--tier", choices=["smoke", "standard", "full"], default="smoke")
     parser.add_argument("--run", help="Run label (default: date-time). Must be new for this tool and target.")
     parser.add_argument("--url", default="http://127.0.0.1:8000", help="Target server (default %(default)s)")
@@ -56,6 +71,9 @@ def main():
     if status.get("stub"):
         print("WARNING: the server is in --stub mode. Results are plumbing tests, not results.\n")
 
+    available = [g["id"] for g in status.get("guardrails", [])] or ["unguarded", "guarded"]
+    targets = pick_targets(args.target, available)
+
     try:
         module = importlib.import_module(f"{args.tool}_run")
     except ModuleNotFoundError as exc:
@@ -64,7 +82,6 @@ def main():
     label = args.run or datetime.now().strftime("%m%d-%H%M")
     tag = f"{args.tool}.{label}"
     outdir = ROOT / "results" / "raw" / args.tool
-    targets = ["unguarded", "guarded"] if args.target == "both" else [args.target]
 
     for target in targets:
         if (outdir / f"{tag}_{target}.summary.json").exists():

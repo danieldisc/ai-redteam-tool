@@ -66,12 +66,17 @@ class Chatbot:
             documents=[d["text"] for d in self.documents],
         )
 
-    def retrieve(self, query: str) -> tuple[list[str], str]:
-        """Return (ids, context text) of the closest documents to the query."""
+    def retrieve_docs(self, query: str) -> list[tuple[str, str]]:
+        """Return (id, text) of the closest documents to the query."""
         results = self.collection.query(query_texts=[query], n_results=N_RESULTS)
         ids = results.get("ids", [[]])[0]
         docs = results.get("documents", [[]])[0]
-        return ids, "\n\n".join(docs)
+        return list(zip(ids, docs))
+
+    def retrieve(self, query: str) -> tuple[list[str], str]:
+        """Return (ids, context text) of the closest documents to the query."""
+        pairs = self.retrieve_docs(query)
+        return [i for i, _ in pairs], "\n\n".join(t for _, t in pairs)
 
     def build_messages(self, history: list[dict], question: str, context: str) -> list[dict]:
         """System prompt, earlier turns as-is, then the question with the documents."""

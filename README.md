@@ -38,13 +38,29 @@ target/        the chatbot and the server
   canary.py      deterministic leak check        stub.py    fake model for plumbing tests ONLY
   config/        system prompt, documents (clean and poisoned)
   nemo/          NeMo config: input rail "self check input", output rail "regex check output"
+  rails/         the guardrail options (unguarded, NeMo, blocklist, doccheck), one file each
 attacks/       the written leak prompts and the legitimate questions (small, shared)
 tools/         one runner per tool (garak, giskard, inspect, pyrit, promptfoo) plus baseline
 run.py         run one tool against one target
 report/        after a run: analyse.py (summarise the server log beside each tool's own numbers),
                audit.py (sample real replies, label by hand), garak_hitlog.py (browse Garak hits)
+tests/         python tests/test_rails.py checks the guardrail options without Ollama
 results/       summary.md and hand labels are kept; raw output (results/raw/) is git-ignored
 ```
+
+## Guardrail options
+
+The server offers one model per option; pick one with `--target <id>`.
+
+| id | what it is |
+|---|---|
+| `unguarded` | no guardrail |
+| `guarded` | NeMo Guardrails: LLM input check plus regex output check (the id is kept so earlier logs and results still match) |
+| `blocklist` | refuses questions containing listed phrases and replies containing the secret; no model call |
+| `doccheck` | drops retrieved documents that contain injected instructions or unknown links before the model sees them; only matters with `--docs poisoned` |
+
+To add an option: write a class in `target/rails/` (see `base.py`), then add its id to `IDS` and the class to
+`build_registry()` in `rails/__init__.py`. Check the options with `python tests/test_rails.py`.
 
 ## Setup
 
@@ -85,6 +101,8 @@ python run.py garak    --target both --tier standard --run r1
 python report/analyse.py --out results/summary.md
 ```
 
+`--target` takes one id, several separated by commas, `both` (unguarded and guarded) or `all`.
+
 Tools: `baseline`, `garak`, `giskard`, `inspect`, `pyrit`, `promptfoo`. Tiers: `smoke` (prove the wiring),
 `standard` (the curated set, repeated), `full` (everything the curated set has, more repeats). Each run prints
 roughly how many requests it will send and asks before starting. Repeat a run with a new `--run` label to get
@@ -117,6 +135,8 @@ document. Unbounded consumption is only touched by Garak's `divergence` probe.
 - **The guardrail was tuned on the written prompts.** The NeMo input prompt (`target/nemo/prompts.yml`) was
   written knowing the leak prompts in `attacks/`. Results on those prompts (and on the legitimate questions in
   `attacks/benign.json`) flatter the guarded target. The attack tools' own prompts are the held-out test.
+- **`blocklist` and `doccheck` were written knowing the system prompt and the poisoned document**, as a developer
+  would, so treat their results on those as optimistic too. The blocklist checks the latest question only.
 - **Judges are weak.** Giskard and Promptfoo grade with the local 8B model; Garak's detectors are string and
   classifier based. Earlier work found about 44% of one Garak probe's "hits" were false positives and Giskard's
   pass rate was about 2-3 times too high. Do not quote a tool's own number without the hand audit beside it.
@@ -125,7 +145,8 @@ document. Unbounded consumption is only touched by Garak's `divergence` probe.
 - **Promptfoo and PyRIT multi-turn attacks use a local attacker.** Promptfoo's remote generation is off
   (data stays on this machine), so some plugins or strategies are skipped or weaker. Read the notes in each run's
   output for what was skipped.
-- **Retrieved documents are not checked by any rail.** A poisoned document reaches the model unfiltered.
+- **Retrieved documents are checked only by `doccheck`.** With every other option a poisoned document reaches the
+  model unfiltered. `doccheck` only matters when the server runs with `--docs poisoned`.
 - **The input rail costs a second model call.** Compare latency and false refusals in `report/analyse.py`.
 
 ## Verification status

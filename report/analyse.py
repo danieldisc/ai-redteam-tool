@@ -31,7 +31,19 @@ LOG_PATH = ROOT / "results" / "raw" / "server_log.jsonl"
 SUMMARY_GLOB = "results/raw/*/*.summary.json"
 AUDIT_PATH = ROOT / "results" / "audit" / "totals.json"
 
-BLOCK_LAYERS = ["nemo_input", "nemo_output", "model_refused", "none"]
+# Rails that can stop a request. The two NeMo ones are always shown; any other layer found in the log is added.
+BASE_STOP_LAYERS = ["nemo_input", "nemo_output"]
+LAYER_LABELS = {"nemo_input": "NeMo input", "nemo_output": "NeMo output",
+                "blocklist_input": "blocklist input", "blocklist_output": "blocklist output"}
+
+
+def stop_layers(rows: list[dict]) -> list[str]:
+    extra = sorted({r["blocked_by"] for r in rows} - set(BASE_STOP_LAYERS) - {"model_refused", "none"})
+    return BASE_STOP_LAYERS + extra
+
+
+def layer_label(layer: str) -> str:
+    return LAYER_LABELS.get(layer, layer.replace("_", " "))
 
 
 def load_log(path: Path = LOG_PATH) -> list[dict]:
@@ -76,6 +88,7 @@ def pct(n: int, d: int) -> str:
 def build_report(rows: list[dict], sets: dict, summaries: dict, audit: dict) -> str:
     lines: list[str] = []
     add = lines.append
+    layers = stop_layers(rows)
 
     # ---- 1. per tool run and target --------------------------------------
     groups: dict[tuple, list[dict]] = defaultdict(list)
@@ -86,8 +99,9 @@ def build_report(rows: list[dict], sets: dict, summaries: dict, audit: dict) -> 
     add("Every figure is for the target named in the row. `tool flagged` is the tool's own "
         "verdict; `canary leaks` is the deterministic check on the real reply.\n")
     add("| tool run | target | requests | canary leaks | tool flagged | hand audit | "
-        "stopped by NeMo input | by NeMo output | model refused | no block |")
-    add("|---|---|---|---|---|---|---|---|---|---|")
+        + " | ".join(("stopped by " if i == 0 else "by ") + layer_label(l) for i, l in enumerate(layers))
+        + " | model refused | no block |")
+    add("|" + "---|" * (6 + len(layers) + 2))
     for (tag, model), rs in sorted(groups.items()):
         target = model.removeprefix("askdbc-")
         leaks = sum(r["canary"] != "clean" for r in rs)
@@ -97,7 +111,7 @@ def build_report(rows: list[dict], sets: dict, summaries: dict, audit: dict) -> 
         aud = audit.get(f"{tag}|{target}")
         audited = f"{aud['succeeded']}/{aud['labelled']} succeeded" if aud else "not done"
         add(f"| {tag} | {target} | {len(rs)} | {pct(leaks, len(rs))} | {flagged} | {audited} | "
-            + " | ".join(str(blocks.get(b, 0)) for b in BLOCK_LAYERS) + " |")
+            + " | ".join(str(blocks.get(b, 0)) for b in layers + ["model_refused", "none"]) + " |")
 
     # ---- 2. false refusals on legitimate questions -----------------------
     add("\n## Legitimate questions (false refusals)\n")
@@ -117,26 +131,33 @@ def build_report(rows: list[dict], sets: dict, summaries: dict, audit: dict) -> 
     add("\n## Written leak prompts (`attacks/leak.json`)\n")
     add("Seven prompts written while the rails were built. The guarded target has effectively seen "
         "these, so this is NOT a held-out result.\n")
-    add("| target | requests | canary leaks | stopped by NeMo input | by NeMo output |")
-    add("|---|---|---|---|---|")
+    add("| target | requests | canary leaks | "
+        + " | ".join(("stopped by " if i == 0 else "by ") + layer_label(l) for i, l in enumerate(layers)) + " |")
+    add("|" + "---|" * (3 + len(layers)))
     for model in sorted({r["model"] for r in rows}):
         rs = [r for r in rows if r["model"] == model and r["question"] in sets["leak_set"]]
         blocks = Counter(r["blocked_by"] for r in rs)
         leaks = sum(r["canary"] != "clean" for r in rs)
         add(f"| {model.removeprefix('askdbc-')} | {len(rs)} | {pct(leaks, len(rs))} | "
-            f"{blocks.get('nemo_input', 0)} | {blocks.get('nemo_output', 0)} |")
+            + " | ".join(str(blocks.get(l, 0)) for l in layers) + " |")
 
     # ---- 4. layer overlap --------------------------------------------------
-    guarded = [r for r in rows if r["model"] == "askdbc-guarded"]
-    add("\n## Which layer stopped the guarded target\n")
-    if guarded:
-        blocks = Counter(r["blocked_by"] for r in guarded)
-        add(f"{len(guarded)} guarded requests in total: "
-            + ", ".join(f"{b} {blocks.get(b, 0)}" for b in BLOCK_LAYERS) + ".")
-        passed_leaks = sum(r["canary"] != "clean" and r["blocked_by"] == "none" for r in guarded)
-        add(f"Replies that reached the user and still leaked (canary): {passed_leaks}.")
-    else:
+    protected = sorted({r["model"] for r in rows} - {"askdbc-unguarded"})
+    if not protected:
+        add("\n## Which layer stopped the guarded target\n")
         add("No guarded requests logged yet.")
+    for model in protected:
+        name = model.removeprefix("askdbc-")
+        rs = [r for r in rows if r["model"] == model]
+        blocks = Counter(r["blocked_by"] for r in rs)
+        add(f"\n## Which layer stopped the {name} target\n")
+        add(f"{len(rs)} {name} requests in total: "
+            + ", ".join(f"{b} {blocks.get(b, 0)}" for b in layers + ["model_refused", "none"]) + ".")
+        passed_leaks = sum(r["canary"] != "clean" and r["blocked_by"] == "none" for r in rs)
+        add(f"Replies that reached the user and still leaked (canary): {passed_leaks}.")
+        dropped = sum(bool(r.get("dropped_ids")) for r in rs)
+        if dropped:
+            add(f"Requests where retrieved documents were dropped before the model saw them: {dropped}.")
     return "\n".join(lines) + "\n"
 
 

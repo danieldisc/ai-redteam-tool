@@ -6,9 +6,11 @@ this one server, so they all hit identical code.
     python target/server.py --docs poisoned  # include the booby-trapped document
     python target/server.py --port 8001
 
-Two models are served:
-    askdbc-unguarded   retrieval + Llama 3.1 8B
+One model is served per guardrail option (see target/rails/):
+    askdbc-unguarded   retrieval + Llama 3.1 8B, no guardrail
     askdbc-guarded     the same, wrapped in NeMo Guardrails (input + output rail)
+    askdbc-blocklist   keyword blocklist on the question, secret filter on the reply
+    askdbc-doccheck    drops retrieved documents that contain injected instructions
 
 Point a tool at  http://localhost:8000/<tag>/v1  where <tag> is the tool name,
 optionally with a run label after a dot (e.g. garak.run1). The tag is only used
@@ -20,8 +22,8 @@ layer stopped it, and the deterministic leak verdict from canary.py.
 
 Client-supplied system messages are dropped: a real chatbot would not let the
 user replace its system prompt. Tool/function calling is not supported, and the
-request settings max_tokens, temperature and stop are ignored, so both models
-always answer with their own defaults and are compared like for like.
+request settings max_tokens, temperature and stop are ignored, so every model
+always answers with their own defaults and are compared like for like.
 
 Requirements: see requirements.txt (Python 3.12). PyRIT has its own environment: requirements-pyrit.txt.
 """
@@ -44,14 +46,15 @@ from fastapi.responses import JSONResponse, StreamingResponse  # noqa: E402
 
 import canary  # noqa: E402
 import rag  # noqa: E402
+import rails  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 LOG_PATH = Path(os.environ.get("REDTEAM_LOG", ROOT / "results" / "raw" / "server_log.jsonl"))
-MODELS = ("askdbc-unguarded", "askdbc-guarded")
+MODELS = tuple(f"askdbc-{i}" for i in rails.IDS)
 MAX_N = 10
 
 app = FastAPI(title="AskDBC-Demo target")
-state: dict = {}  # filled in by main(): chatbot, rails, stub, docs
+state: dict = {}  # filled in by main(): chatbot, guardrails, stub, docs
 _log_lock = asyncio.Lock()
 _llm_lock = asyncio.Semaphore(int(os.environ.get("REDTEAM_CONCURRENCY", "1")))
 
@@ -86,14 +89,10 @@ async def write_log(record: dict) -> None:
 
 
 async def run_target(model: str, history: list[dict], question: str):
-    """Returns (reply, retrieved ids, blocked_by)."""
+    """Run one question through the guardrail option named by the model."""
     async with _llm_lock:
-        if model == "askdbc-unguarded":
-            reply, ids = await asyncio.to_thread(state["chatbot"].answer, history, question)
-            return reply, ids, "model_refused" if canary.looks_like_refusal(reply) else "none"
-        import guard
-
-        return await guard.guarded_answer(state["rails"], state["chatbot"], history, question)
+        guardrail = state["guardrails"][model.removeprefix("askdbc-")]
+        return await guardrail.answer(state["chatbot"], history, question)
 
 
 def completion_body(model: str, replies: list[str]) -> dict:
@@ -129,7 +128,9 @@ def stream_body(model: str, replies: list[str]):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "stub": state.get("stub", False), "docs": state.get("docs")}
+    guardrails = [{"id": g.id, "label": g.label, "description": g.description}
+                  for g in state.get("guardrails", {}).values()]
+    return {"status": "ok", "stub": state.get("stub", False), "docs": state.get("docs"), "guardrails": guardrails}
 
 
 @app.get("/{tag}/v1/models")
@@ -150,7 +151,7 @@ async def chat_completions(tag: str, request: Request):
     replies = []
     for _ in range(n):
         started = time.perf_counter()
-        reply, ids, blocked_by = await run_target(model, history, question)
+        reply, ids, blocked_by, dropped = await run_target(model, history, question)
         latency = round(time.perf_counter() - started, 2)
         replies.append(reply)
         await write_log({
@@ -164,6 +165,7 @@ async def chat_completions(tag: str, request: Request):
             "question": question,
             "history": history,
             "retrieved_ids": ids,
+            "dropped_ids": list(dropped),
             "response": reply,
             "blocked_by": blocked_by,
             "canary": canary.check(reply, state["chatbot"].system_prompt),
@@ -185,11 +187,9 @@ def build_state(docs: str, stub: bool) -> None:
     else:
         chatbot = rag.Chatbot(documents_path)
         nemo_llm = None
-    import guard
-
     state.update(
         chatbot=chatbot,
-        rails=guard.build_rails(chatbot.system_prompt, llm=nemo_llm),
+        guardrails=rails.build_registry(chatbot, nemo_llm),
         stub=stub,
         docs=docs,
     )
