@@ -5,7 +5,8 @@ Run one attack tool against one target.
     python run.py garak     --target guarded   --tier standard --run r1
     python run.py baseline  --target both      --tier smoke
 
-Tools: baseline (built-in prompts), garak, giskard, inspect, pyrit, promptfoo
+Tools: baseline (built-in prompts), scripted (fixed multi-turn conversations), garak, giskard, inspect,
+       pyrit, promptfoo
 Targets: a guardrail id from the server (unguarded, guarded = NeMo, blocklist, doccheck), several
          separated by commas, `both` (unguarded and guarded) or `all`; run one after the other
 Tiers: smoke (prove the wiring, about 10-40 requests), standard (the curated set),
@@ -37,7 +38,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 for _var in ("DO_NOT_TRACK", "GISKARD_TELEMETRY_DISABLED", "PROMPTFOO_DISABLE_TELEMETRY", "PROMPTFOO_DISABLE_UPDATE"):
     os.environ.setdefault(_var, "1")
 
-TOOLS = ["baseline", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
+TOOLS = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
 
 
 def pick_targets(choice: str, available: list[str]) -> list[str]:

@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red team bench</title>
+<style>
+  :root { color-scheme: light dark; --line: #8884; --muted: #888; --ok: #1a7f37; --bad: #cf222e; --run: #0969da; }
+  body { font: 15px/1.45 system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.3rem; margin: 0 0 8px; }
+  h2 { font-size: 1.05rem; margin: 22px 0 8px; }
+  section { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+  .banner { padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; border: 1px solid var(--line); }
+  .banner.bad { border-color: var(--bad); color: var(--bad); }
+  .banner.warn { border-color: #bf8700; color: #bf8700; }
+  .grid { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+  label.opt { display: inline-flex; gap: 6px; align-items: baseline; }
+  .hint { color: var(--muted); font-size: .85em; }
+  button, select, input[type=text] { font: inherit; padding: 4px 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: .92em; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+  .s-done { color: var(--ok); } .s-failed, .s-interrupted { color: var(--bad); }
+  .s-running { color: var(--run); font-weight: 600; } .s-cancelled { color: var(--muted); }
+  pre { background: #8881; padding: 10px; border-radius: 6px; overflow: auto; max-height: 420px; white-space: pre-wrap; margin: 8px 0 0; font-size: .85em; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>Red team bench</h1>
+<div id="banner" class="banner">Checking the target…</div>
+
+<section>
+  <h2 style="margin-top:0">1. Queue runs</h2>
+  <div><b>Tools</b> <span class="hint">(approx. requests per guardrail at the chosen tier)</span></div>
+  <div class="grid" id="tools"></div>
+  <div style="margin-top:10px"><b>Guardrails</b></div>
+  <div class="grid" id="guardrails"><span class="hint">waiting for the target…</span></div>
+  <div class="row">
+    <label>Tier <select id="tier"></select></label>
+    <label>Run label <input type="text" id="label" size="14" placeholder="auto"></label>
+    <button id="queue">Queue runs</button>
+    <span class="hint" id="estimate"></span>
+  </div>
+  <div class="hint" id="message" style="margin-top:6px"></div>
+</section>
+
+<section>
+  <h2 style="margin-top:0">2. Queue <button id="clear" style="margin-left:8px">Clear finished</button></h2>
+  <table>
+    <thead><tr><th>#</th><th>Tool</th><th>Guardrail</th><th>Tier</th><th>Label</th><th>Status</th><th>Result</th><th>Started</th><th></th></tr></thead>
+    <tbody id="jobs"><tr><td colspan="9" class="hint">No jobs yet.</td></tr></tbody>
+  </table>
+  <div id="logtitle" class="hint" style="margin-top:10px">Click “log” on a job to follow its output.</div>
+  <pre id="log" hidden></pre>
+</section>
+
+<section>
+  <h2 style="margin-top:0">3. Reports</h2>
+  <div class="row" style="margin-top:0">
+    <button data-kind="compare">Comparison matrix</button>
+    <button data-kind="summary">Full summary</button>
+    <label class="opt"><input type="checkbox" id="stub"> include stub (fake model) rows</label>
+    <button id="copy">Copy</button>
+  </div>
+  <pre id="report">Press a button to build a report from the server log.</pre>
+</section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let options = null, guardrailKey = "", selected = null, logOffset = 0, target = {reachable: false, guardrails: []};
+
+async function api(path, body) {
+  const opt = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+function checked(container) { return [...document.querySelectorAll(`#${container} input:checked`)].map((i) => i.value); }
+function opt(container, value, text, hint) {
+  const l = document.createElement("label"); l.className = "opt";
+  const i = document.createElement("input"); i.type = "checkbox"; i.value = value; i.addEventListener("change", estimate);
+  l.append(i, document.createTextNode(text));
+  if (hint !== undefined) { const h = document.createElement("span"); h.className = "hint"; h.dataset.tool = value; l.append(h); }
+  $(container).append(l);
+}
+function estimate() {
+  const tier = $("tier").value, tools = checked("tools"), g = checked("guardrails").length;
+  let total = 0, unknown = false;
+  for (const t of tools) { const n = options.hints[t][tier]; if (n == null) unknown = true; else total += n * g; }
+  $("estimate").textContent = tools.length && g ? `${tools.length * g} jobs, about ${total.toLocaleString()} requests${unknown ? " plus tools with no estimate (large)" : ""}` : "";
+  document.querySelectorAll("#tools .hint").forEach((h) => { const n = options.hints[h.dataset.tool][tier]; h.textContent = n == null ? "(large)" : `(${n.toLocaleString()})`; });
+}
+async function init() {
+  options = await api("/api/options");
+  options.tools.forEach((t) => opt("tools", t, t, ""));
+  options.tiers.forEach((t) => { const o = document.createElement("option"); o.value = o.textContent = t; if (t === "smoke") o.selected = true; $("tier").append(o); });
+  $("tier").addEventListener("change", estimate);
+  estimate();
+  refresh(); setInterval(refresh, 2000); setInterval(pollLog, 1500);
+}
+async function refresh() {
+  try { target = await api("/api/status"); } catch (e) { target = {reachable: false, error: String(e), guardrails: []}; }
+  const b = $("banner");
+  if (!target.reachable) { b.className = "banner bad"; b.textContent = `Target not reachable at ${target.url || ""}. Start it with: python target/server.py`; }
+  else if (target.stub) { b.className = "banner warn"; b.textContent = "Target is in STUB mode: a fake model. Results are plumbing tests, not results."; }
+  else { b.className = "banner"; b.textContent = `Target ${target.url} is up. Documents: ${target.docs}.`; }
+  const key = target.guardrails.map((g) => g.id).join(",");
+  if (key !== guardrailKey) {
+    guardrailKey = key; const keep = new Set(checked("guardrails")); $("guardrails").textContent = "";
+    target.guardrails.forEach((g) => { opt("guardrails", g.id, g.label ? `${g.id} (${g.label})` : g.id); });
+    document.querySelectorAll("#guardrails input").forEach((i) => { i.checked = keep.has(i.value); });
+    if (!target.guardrails.length) $("guardrails").innerHTML = '<span class="hint">none: the target is not reachable</span>';
+  }
+  const data = await api("/api/jobs").catch(() => null); if (data) drawJobs(data.jobs);
+}
+function drawJobs(jobs) {
+  const body = $("jobs"); body.textContent = "";
+  if (!jobs.length) { body.innerHTML = '<tr><td colspan="9" class="hint">No jobs yet.</td></tr>'; return; }
+  for (const j of jobs.slice().reverse()) {
+    const tr = document.createElement("tr");
+    const cells = [j.id, j.tool, j.target, j.tier, j.label, j.status, j.result || "", (j.started || "").replace("T", " ")];
+    cells.forEach((c, i) => { const td = document.createElement("td"); td.textContent = c; if (i === 5) td.className = "s-" + j.status; tr.append(td); });
+    const act = document.createElement("td");
+    const lg = document.createElement("button"); lg.textContent = "log"; lg.onclick = () => selectLog(j); act.append(lg);
+    if (j.status === "queued" || j.status === "running") { const c = document.createElement("button"); c.textContent = "cancel"; c.style.marginLeft = "6px"; c.onclick = () => api(`/api/jobs/${j.id}/cancel`, {}).then(refresh); act.append(c); }
+    tr.append(act); body.append(tr);
+  }
+}
+function selectLog(j) { selected = j.id; logOffset = 0; $("log").hidden = false; $("log").textContent = ""; $("logtitle").textContent = `Log of job ${j.id}: ${j.tool} on ${j.target} (${j.tier})`; pollLog(); }
+async function pollLog() {
+  if (selected === null) return;
+  const d = await api(`/api/jobs/${selected}/log?offset=${logOffset}`).catch(() => null);
+  if (!d || !d.text) return;
+  const pre = $("log"), atEnd = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 30;
+  pre.textContent += d.text; logOffset = d.next; if (atEnd) pre.scrollTop = pre.scrollHeight;
+}
+$("queue").onclick = async () => {
+  if (target.stub && !confirm("The target is in stub mode, so these results would be fake. Queue anyway?")) return;
+  try {
+    const r = await api("/api/jobs", {tools: checked("tools"), guardrails: checked("guardrails"), tier: $("tier").value, label: $("label").value});
+    $("message").textContent = `Queued ${r.created.length} job(s) with label ${r.label}.` + (r.skipped.length ? " Skipped: " + r.skipped.join("; ") : "");
+    refresh();
+  } catch (e) { $("message").textContent = "Not queued: " + e.message; }
+};
+$("clear").onclick = () => api("/api/jobs/clear", {}).then(refresh);
+document.querySelectorAll("button[data-kind]").forEach((b) => b.onclick = async () => {
+  $("report").textContent = "Building…";
+  try { $("report").textContent = (await api("/api/report", {kind: b.dataset.kind, include_stub: $("stub").checked})).text; }
+  catch (e) { $("report").textContent = "Error: " + e.message; }
+});
+$("copy").onclick = () => navigator.clipboard.writeText($("report").textContent);
+init();
+</script>
+</body>
+</html>

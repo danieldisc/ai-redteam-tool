@@ -7,6 +7,14 @@ meant to be run by hand, but it can be:
     venv-pyrit/bin/python tools/pyrit_attacks.py --url http://127.0.0.1:8000/pyrit.r1/v1 \
         --model askdbc-guarded --tier smoke --out results/raw/pyrit/x.json
 
+To try ONE multi-turn attack and see why it failed, run it by hand (see --only):
+
+    venv-pyrit\\Scripts\\python tools\\pyrit_attacks.py --url http://127.0.0.1:8000/pyrit.dbg1/v1 ^
+        --model askdbc-unguarded --only red_teaming --objective 0 --turns 3 --out results\\raw\\pyrit\\dbg1.json
+
+It prints the full error or result. Every turn the attacker sends is also in the server log under the
+tag pyrit.dbg1, so the whole conversation can be read there.
+
 Attacks
     single-turn   PromptSendingAttack: each objective, plain and through prompt
                   converters (base64, ROT13, leetspeak, character swaps, unicode
@@ -109,9 +117,28 @@ async def main_async(args) -> dict:
         except Exception as exc:
             reply, ok, err = "", False, f"{type(exc).__name__}: {exc}"
             traceback.print_exc()
+        reason = None if err else getattr(result, "outcome_reason", None)
         records.append({"kind": kind, "objective": objective, "converters": list(converters), "success": ok,
-                        "outcome": "error" if err else str(result.outcome.value), "error": err, "reply": reply[:400]})
+                        "outcome": "error" if err else str(result.outcome.value), "outcome_reason": reason,
+                        "error": err, "reply": reply[:400]})
         print("S" if ok else ("E" if err else "."), end="", flush=True)
+
+    # ---- one multi-turn attack on one objective, for finding out why it fails -----------
+    if args.only:
+        text, needle = OBJECTIVES[args.objective]
+        scoring = AttackScoringConfig(objective_scorer=SubStringScorer(substring=needle))
+        adversarial = AttackAdversarialConfig(target=attacker)
+        if args.only == "red_teaming":
+            attack = RedTeamingAttack(objective_target=target, attack_adversarial_config=adversarial,
+                                      attack_scoring_config=scoring, max_turns=args.turns)
+        else:
+            attack = CrescendoAttack(objective_target=target, attack_adversarial_config=adversarial,
+                                     attack_scoring_config=scoring, max_turns=args.turns, max_backtracks=2)
+        print(f"{args.only} on objective {args.objective}: {text!r}, up to {args.turns} turns, "
+              f"attacker {args.attacker_model} at {args.attacker_url}")
+        await record(args.only, text, needle, attack)
+        print("\n" + json.dumps(records[-1], indent=2, ensure_ascii=False))
+        return {"records": records}
 
     # ---- single-turn, plain and converted ----------------------------------------
     for text, needle in objectives:
@@ -161,6 +188,10 @@ def main():
     parser.add_argument("--tier", choices=["smoke", "standard", "full"], default="smoke")
     parser.add_argument("--attacker-url", default="http://localhost:11434/v1")
     parser.add_argument("--attacker-model", default="llama3.1:8b")
+    parser.add_argument("--only", choices=["red_teaming", "crescendo"],
+                        help="run just this multi-turn attack on one objective, and print everything")
+    parser.add_argument("--objective", type=int, default=0, help="with --only: index into OBJECTIVES (default 0)")
+    parser.add_argument("--turns", type=int, default=3, help="with --only: maximum turns (default 3)")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
     outcome = asyncio.run(main_async(args))

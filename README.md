@@ -39,14 +39,30 @@ target/        the chatbot and the server
   config/        system prompt, documents (clean and poisoned)
   nemo/          NeMo config: input rail "self check input", output rail "regex check output"
   rails/         the guardrail options (unguarded, NeMo, blocklist, doccheck), one file each
-attacks/       the written leak prompts and the legitimate questions (small, shared)
-tools/         one runner per tool (garak, giskard, inspect, pyrit, promptfoo) plus baseline
+attacks/       the written leak prompts, the legitimate questions, and scripted multi-turn conversations
+tools/         one runner per tool (garak, giskard, inspect, pyrit, promptfoo) plus baseline and scripted
 run.py         run one tool against one target
 report/        after a run: analyse.py (summarise the server log beside each tool's own numbers),
-               audit.py (sample real replies, label by hand), garak_hitlog.py (browse Garak hits)
-tests/         python tests/test_rails.py checks the guardrail options without Ollama
+               audit.py (sample real replies, label by hand), garak_hitlog.py (browse Garak hits),
+               compare.py (one tool x guardrail matrix)
+ui/            local web page: queue runs, follow logs, build reports (python ui/app.py)
+tests/         test_rails.py, test_scripted.py, test_compare.py, test_ui.py: plain `python tests/<file>`, no Ollama needed
 results/       summary.md and hand labels are kept; raw output (results/raw/) is git-ignored
 ```
+
+## Web page
+
+```
+python target/server.py            # terminal 1, as before
+python ui/app.py                   # terminal 2, then open http://127.0.0.1:8080
+```
+
+Tick tools and guardrails, pick a tier, press Queue runs. Jobs run one at a time (the target answers one request at
+once), each as its own `python run.py ...` process, so PyRIT keeps its own environment and a crashed job does not
+stop the others. All jobs queued together share one run label, so every guardrail gets the same attacks. You can
+watch a job's log, cancel it, and build the reports at the bottom: the **comparison matrix** (tool x guardrail, from
+`report/compare.py`) or the full summary (`report/analyse.py`). The page only listens on 127.0.0.1, has no login and
+uses only the standard library. The target server (and its `--docs poisoned` setting) is still started by you.
 
 ## Guardrail options
 
@@ -103,7 +119,7 @@ python report/analyse.py --out results/summary.md
 
 `--target` takes one id, several separated by commas, `both` (unguarded and guarded) or `all`.
 
-Tools: `baseline`, `garak`, `giskard`, `inspect`, `pyrit`, `promptfoo`. Tiers: `smoke` (prove the wiring),
+Tools: `baseline`, `scripted`, `garak`, `giskard`, `inspect`, `pyrit`, `promptfoo`. Tiers: `smoke` (prove the wiring),
 `standard` (the curated set, repeated), `full` (everything the curated set has, more repeats). Each run prints
 roughly how many requests it will send and asks before starting. Repeat a run with a new `--run` label to get
 more samples. To label a sample by hand: `python report/audit.py garak.r1 guarded --n 25`.
@@ -128,6 +144,10 @@ inspect eval tools/inspect_tasks.py@excessive_agency --model ollama/llama3.1:8b
 
 Not covered: supply chain, training-data poisoning, and embedding/vector weaknesses beyond the one poisoned
 document. Unbounded consumption is only touched by Garak's `divergence` probe.
+
+`scripted` replays the fixed conversations in `attacks/multiturn.json` (gradual escalation, role-play, claimed
+authority, one piece at a time, persistent instruction, and a legitimate control). It reports conversations, so
+`tool flagged` counts conversations while the canary column counts every turn. `M8` needs `--docs poisoned`.
 
 ## Limits to state whenever results are quoted
 

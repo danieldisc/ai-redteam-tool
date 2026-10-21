@@ -69,9 +69,9 @@ def load_question_sets() -> dict[str, set[str]]:
     }
 
 
-def load_tool_summaries() -> dict[tuple, dict]:
+def load_tool_summaries(root: Path = ROOT) -> dict[tuple, dict]:
     out = {}
-    for path in ROOT.glob(SUMMARY_GLOB):
+    for path in root.glob(SUMMARY_GLOB):
         d = json.loads(path.read_text(encoding="utf-8"))
         out[(d["tag"], d["target"])] = d
     return out
