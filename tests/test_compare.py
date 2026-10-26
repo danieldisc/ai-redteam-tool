@@ -36,6 +36,11 @@ summaries = {
 }
 text = compare.build_report(rows, summaries)
 runs = compare.pick_runs(rows, summaries)
+poison_rows = [dict(row("garak.q1", "unguarded_poisoned", ts="2026-10-21T10:00:00"), docs="poisoned") for _ in range(10)]
+poison_rows += [dict(row("garak.q1", "unguarded_poisoned", "leaked", ts="2026-10-21T10:00:00"), docs="poisoned")] * 2
+poison_summaries = {**summaries, ("garak.q1", "unguarded_poisoned"): summary("garak", "garak.q1", "unguarded_poisoned", "standard", 12, 7)}
+clean_view = compare.pick_runs(rows + poison_rows, poison_summaries)
+poison_view = compare.pick_runs(rows + poison_rows, poison_summaries, "poisoned")
 
 
 def check(name, ok):
@@ -51,6 +56,13 @@ results = [
     check("tools and guardrails are ordered, with empty cells as -", "| pyrit | - | - | 0/18 (0%) |" in text),
     check("the run table names the run behind each cell", "| garak | unguarded | garak.r1 | standard | 103 |" in text),
     check("empty input gives a helpful message", "No runs with a summary file" in compare.build_report([], {})),
+    check("the clean matrix ignores poisoned runs", clean_view[("garak", "unguarded")]["tag"] == "garak.r1"),
+    check("the poisoned matrix shows only poisoned runs, under the plain guardrail name",
+          list(poison_view) == [("garak", "unguarded")] and poison_view[("garak", "unguarded")]["tag"] == "garak.q1"
+          and poison_view[("garak", "unguarded")]["leaks"] == 2),
+    check("the report says which document set it shows",
+          "Documents: **clean**" in compare.build_report(rows, summaries) and "Documents: **poisoned**" in compare.build_report(rows + poison_rows, poison_summaries, "poisoned")),
+    check("a document set with no runs says so", "poisoned documents yet" in compare.build_report(rows, summaries, "poisoned")),
 ]
 print(f"\n{sum(results)}/{len(results)} checks passed")
 sys.exit(0 if all(results) else 1)

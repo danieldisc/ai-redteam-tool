@@ -2,8 +2,8 @@
 Retrieved-document check: look at each retrieved document before the model does, and drop
 any that contain instruction-like text or a link to an unknown site.
 
-It only does anything when a document is poisoned, so run the server with
-`--docs poisoned` to test it. The question is passed through untouched. Dropped documents
+It only does anything when a document is poisoned, so test it on the poisoned set (a target
+ending _poisoned, or run.py --docs poisoned). The question is passed through untouched. Dropped documents
 are listed in the log as dropped_ids; blocked_by stays "none" because the answer still goes out.
 """
 
@@ -41,7 +41,7 @@ class DocCheck(Guardrail):
     id = "doccheck"
     label = "document check"
     description = ("Drops retrieved documents that contain injected instructions or links to unknown sites "
-                   "before the model sees them. Only matters with --docs poisoned.")
+                   "before the model sees them. Only matters on the poisoned documents.")
 
     async def answer(self, chatbot, history, question):
         pairs = await asyncio.to_thread(chatbot.retrieve_docs, question)

@@ -23,10 +23,15 @@ Stub runs (server --stub) are excluded unless --include-stub is given.
 
 import argparse
 import json
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "target"))
+
+from docs_mode import MODES, guardrail_of, target_of  # noqa: E402,F401  (re-exported for the other reports)
+
 LOG_PATH = ROOT / "results" / "raw" / "server_log.jsonl"
 SUMMARY_GLOB = "results/raw/*/*.summary.json"
 AUDIT_PATH = ROOT / "results" / "audit" / "totals.json"
@@ -44,6 +49,11 @@ def stop_layers(rows: list[dict]) -> list[str]:
 
 def layer_label(layer: str) -> str:
     return LAYER_LABELS.get(layer, layer.replace("_", " "))
+
+
+def docs_of(row: dict) -> str:
+    """The document set a logged request used. Rows from before the field existed were clean."""
+    return row.get("docs") or "clean"
 
 
 def load_log(path: Path = LOG_PATH) -> list[dict]:

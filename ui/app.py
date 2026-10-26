@@ -9,6 +9,14 @@ guardrails, pick a tier, and queue the runs. Jobs run one at a time, because the
 request at once. Each job is its own `python run.py <tool> --target <guardrail> ...` process, so
 PyRIT still uses its own environment, and a job that crashes does not stop the others.
 
+The top of the page is a guided scan: tick OWASP categories (listed in attacks/owasp.json), and the
+page queues the tools that cover them on every guardrail ticked, then shows a category x guardrail
+grid with evidence (report/scan.py). The advanced section below still queues single tools.
+
+The target serves clean and poisoned documents at once (a target id ending _poisoned), so there is no
+restart: "Documents: automatic" runs the poisoning categories on the poisoned set and the rest on the
+clean one, within one scan.
+
 All jobs queued together share one run label, so every guardrail gets the same attacks (Promptfoo
 reuses the test cases it generated for the first one). The page only listens on 127.0.0.1 and has no
 login: do not expose it. It uses nothing but the standard library.
@@ -32,8 +40,16 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent.parent
 UI_DIR = Path(__file__).resolve().parent
 RESULTS_RAW = ROOT / "results" / "raw"
+RESULTS_SCANS = ROOT / "results" / "scans"
+sys.path.insert(0, str(ROOT / "report"))
+sys.path.insert(0, str(ROOT / "target"))
 
-TOOLS = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
+import analyse  # noqa: E402
+from docs_mode import MODES, join_target, split_target  # noqa: E402
+import owasp  # noqa: E402
+import scan as scanning  # noqa: E402
+
+TOOLS = ["baseline", "scripted", "adaptive", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
 TIERS = ["smoke", "standard", "full"]
 KNOWN_GUARDRAILS = [{"id": "unguarded"}, {"id": "guarded"}]  # for a server that predates /health listing them
 NAME = re.compile(r"^[a-z0-9_-]{1,30}$")
@@ -44,6 +60,7 @@ FINISHED = ("done", "failed", "cancelled", "interrupted")
 REQUEST_HINTS = {
     "baseline": {"smoke": 27, "standard": 81, "full": 135},
     "scripted": {"smoke": 10, "standard": 72, "full": 120},
+    "adaptive": {"smoke": 6, "standard": 50, "full": 160},  # also one Claude API call per request: costs money
     "garak": {"smoke": 36, "standard": 1740, "full": None},
     "giskard": {"smoke": 7, "standard": 99, "full": 165},
     "inspect": {"smoke": 8, "standard": 117, "full": 195},
@@ -220,9 +237,14 @@ class JobQueue:
 
 class App:
     def __init__(self, target_url: str, port: int, state_dir: Path = RESULTS_RAW / "ui",
-                 results_raw: Path = RESULTS_RAW, build_command=None):
+                 results_raw: Path = RESULTS_RAW, build_command=None, log_path: Path = analyse.LOG_PATH,
+                 scans_dir: Path = RESULTS_SCANS):
         self.target_url = target_url.rstrip("/")
         self.results_raw = results_raw
+        self.log_path = log_path
+        self.scans_dir = scans_dir
+        self.scans_file = state_dir / "scans.json"
+        self.categories = owasp.load_rules()
         self.allowed_hosts: set[str] = set()
         self.set_port(port)
         self.queue = JobQueue(state_dir, build_command or self._run_command)
@@ -242,10 +264,13 @@ class App:
         except (urllib.error.URLError, OSError, ValueError) as exc:
             return {"reachable": False, "url": self.target_url, "error": str(exc), "guardrails": []}
         return {"reachable": True, "url": self.target_url, "stub": bool(data.get("stub")), "docs": data.get("docs"),
-                "guardrails": data.get("guardrails") or KNOWN_GUARDRAILS}
+                "docs_modes": data.get("docs_modes") or [], "guardrails": data.get("guardrails") or KNOWN_GUARDRAILS}
 
     def options(self) -> dict:
-        return {"tools": TOOLS, "tiers": TIERS, "hints": REQUEST_HINTS}
+        cats = [{"id": c["id"], "name": c["name"], "tools": c.get("tools", []), "manual": c.get("manual"),
+                 "docs": c.get("docs", "clean")} for c in self.categories]
+        return {"tools": TOOLS, "tiers": TIERS, "hints": REQUEST_HINTS, "categories": cats,
+                "slow_tools": scanning.SLOW_TOOLS}
 
     # ---- jobs ----------------------------------------------------------------------------
     def create_jobs(self, body: dict) -> tuple[dict, int]:
@@ -266,8 +291,10 @@ class App:
         if not status["reachable"]:
             return {"error": f"the target is not reachable at {self.target_url}. Start python target/server.py first."}, 409
         offered = {g["id"] for g in status["guardrails"]}
-        if any(t not in offered for t in targets):
+        if any(split_target(t)[0] not in offered for t in targets):
             return {"error": f"the target offers {sorted(offered)}"}, 400
+        if body.get("docs") == "poisoned":   # single tools: poisoned only when asked for (clean is the default)
+            targets = [join_target(split_target(t)[0], "poisoned") for t in targets]
 
         existing = {(j["tool"], j["target"], j["label"]) for j in self.queue.snapshot()["jobs"]
                     if j["status"] in ("queued", "running")}
@@ -285,10 +312,90 @@ class App:
                     created.append(self.queue.add(tool, target, tier, label))
         return {"created": created, "skipped": skipped, "label": label}, 200
 
+    # ---- scans: pick OWASP categories, run what covers them, report with evidence ----------
+    def _read_scans(self) -> list[dict]:
+        try:
+            return json.loads(self.scans_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+
+    def start_scan(self, body: dict) -> tuple[dict, int]:
+        ids = body.get("categories") or []
+        by_id = {c["id"]: c for c in self.categories}
+        if not ids or any(i not in by_id for i in ids):
+            return {"error": "pick at least one OWASP category from the list"}, 400
+        testable = [i for i in ids if not by_id[i].get("manual")]
+        if not testable:
+            return {"error": "none of the chosen categories has an automated test yet"}, 400
+        choice = body.get("docs") or "auto"
+        if choice not in ("auto", *MODES):
+            return {"error": "docs must be auto, clean or poisoned"}, 400
+        guardrails = body.get("guardrails")
+        if not isinstance(guardrails, list) or any(not isinstance(g, str) or not NAME.match(g) for g in guardrails):
+            return {"error": "pick at least one guardrail"}, 400
+        include_slow = bool(body.get("include_slow"))
+        label = (body.get("label") or "").strip() or "scan" + datetime.now().strftime("%m%d-%H%M%S")
+        if any(s["label"] == label for s in self._read_scans()):
+            return {"error": f"a scan called {label} already exists; pick a new label"}, 409
+
+        # one job set per document set: automatic sends each category to the set it needs
+        plan: dict[str, list[str]] = {}
+        for i in testable:
+            plan.setdefault(choice if choice != "auto" else by_id[i].get("docs", "clean"), []).append(i)
+        created, skipped, tools_used = [], [], []
+        for mode in MODES:
+            if mode not in plan:
+                continue
+            tools = scanning.pick_tools(self.categories, plan[mode], include_slow)
+            result, code = self.create_jobs({"tools": tools, "guardrails": [join_target(g, mode) for g in guardrails],
+                                             "tier": body.get("tier"), "label": label})
+            if code != 200:
+                if created:
+                    result["error"] += f" (jobs for the {', '.join(sorted({j['target'] for j in created}))} targets were already queued)"
+                return result, code
+            created += result["created"]
+            skipped += result["skipped"]
+            tools_used += [t for t in tools if t not in tools_used]
+        if not created:
+            return {"error": "nothing was queued: " + "; ".join(skipped)}, 409
+        warnings = []
+        if choice == "clean" and {"LLM05", "LLM09"} & set(testable):
+            warnings.append("LLM05/LLM09 test the poisoned document, so on clean documents they show nothing. "
+                            "Use Documents: automatic.")
+        skipped_slow = sorted({t for i in testable for t in by_id[i].get("tools", [])} - set(tools_used))
+        if skipped_slow:
+            warnings.append("Not run (slow, tick the box to include): " + ", ".join(skipped_slow))
+        scans = [s for s in self._read_scans() if s["label"] != label]
+        scans.append({"label": label, "categories": testable, "guardrails": guardrails, "tools": tools_used,
+                      "tier": body["tier"], "docs": choice, "started": now()})
+        self.scans_file.parent.mkdir(parents=True, exist_ok=True)
+        self.scans_file.write_text(json.dumps(scans, indent=2), encoding="utf-8")
+        return {"created": created, "skipped": skipped, "label": label, "tools": tools_used, "warnings": warnings}, 200
+
+    def scans(self) -> dict:
+        return {"scans": list(reversed(self._read_scans()))}
+
+    def scan_report(self, label: str) -> tuple[dict, int]:
+        scan = next((s for s in self._read_scans() if s["label"] == label), None)
+        if scan is None:
+            return {"error": "no scan with that label"}, 404
+        rows = [r for r in analyse.load_log(self.log_path) if not r.get("stub")]
+        result = scanning.scan_result(rows, self.categories, label, scan["categories"], scan["guardrails"],
+                                      scan.get("docs", "auto"))
+        markdown = scanning.to_markdown(result)
+        self.scans_dir.mkdir(parents=True, exist_ok=True)
+        saved = self.scans_dir / f"{label}.md"
+        saved.write_text(markdown, encoding="utf-8")
+        jobs = [j for j in self.queue.snapshot()["jobs"] if j["label"] == label]
+        progress = {st: sum(j["status"] == st for j in jobs) for st in ("queued", "running", "done", "failed", "cancelled")}
+        return {"scan": scan, "result": result, "markdown": markdown, "saved": str(saved), "progress": progress}, 200
+
     # ---- reports -------------------------------------------------------------------------
-    def report(self, kind: str, include_stub: bool) -> str:
+    def report(self, kind: str, include_stub: bool, docs: str = "clean") -> str:
         script = {"summary": "analyse.py", "compare": "compare.py"}[kind]
         cmd = [sys.executable, str(ROOT / "report" / script)] + (["--include-stub"] if include_stub else [])
+        if kind == "compare":
+            cmd += ["--docs", docs if docs in MODES else "clean"]
         done = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
                               errors="replace", timeout=120)
         return done.stdout + (("\n" + done.stderr) if done.returncode else "")
@@ -339,6 +446,11 @@ def make_handler(app: App):
                 self._json(app.status())
             elif url.path == "/api/jobs":
                 self._json(app.queue.snapshot())
+            elif url.path == "/api/scans":
+                self._json(app.scans())
+            elif (m := re.fullmatch(r"/api/scans/([A-Za-z0-9_-]{1,40})", url.path)):
+                data, code = app.scan_report(m.group(1))
+                self._json(data, code)
             elif (m := re.fullmatch(r"/api/jobs/(\d+)/log", url.path)):
                 offset = int((parse_qs(url.query).get("offset") or ["0"])[0] or 0)
                 text, nxt = app.queue.read_log(int(m.group(1)), max(offset, 0))
@@ -360,6 +472,9 @@ def make_handler(app: App):
             if path == "/api/jobs":
                 result, code = app.create_jobs(body)
                 self._json(result, code)
+            elif path == "/api/scan":
+                result, code = app.start_scan(body)
+                self._json(result, code)
             elif path == "/api/jobs/clear":
                 self._json({"removed": app.queue.clear_finished()})
             elif (m := re.fullmatch(r"/api/jobs/(\d+)/cancel", path)):
@@ -369,7 +484,7 @@ def make_handler(app: App):
                 kind = body.get("kind")
                 if kind not in ("summary", "compare"):
                     return self._json({"error": "kind must be summary or compare"}, 400)
-                self._json({"text": app.report(kind, bool(body.get("include_stub")))})
+                self._json({"text": app.report(kind, bool(body.get("include_stub")), body.get("docs") or "clean")})
             else:
                 self._json({"error": "not found"}, 404)
 

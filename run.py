@@ -4,11 +4,14 @@ Run one attack tool against one target.
     python run.py garak     --target unguarded --tier smoke
     python run.py garak     --target guarded   --tier standard --run r1
     python run.py baseline  --target both      --tier smoke
+    python run.py scripted  --target all       --tier standard --docs poisoned
 
-Tools: baseline (built-in prompts), scripted (fixed multi-turn conversations), garak, giskard, inspect,
-       pyrit, promptfoo
+Tools: baseline (built-in prompts), scripted (fixed multi-turn conversations), adaptive (Claude as the
+       attacker, needs an Anthropic key), garak, giskard, inspect, pyrit, promptfoo
 Targets: a guardrail id from the server (unguarded, guarded = NeMo, blocklist, doccheck), several
          separated by commas, `both` (unguarded and guarded) or `all`; run one after the other
+Documents: --docs clean (default) or poisoned picks the document set, so there is no need to restart the
+         server. A target can also carry it itself: unguarded_poisoned.
 Tiers: smoke (prove the wiring, about 10-40 requests), standard (the curated set),
        full (everything the curated set has, uncapped, more repeats)
 
@@ -32,26 +35,31 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "target"))
+
+from docs_mode import MODES, join_target, split_target  # noqa: E402
 
 # This is a restricted-network project: switch off usage reporting in the tools
 # that have it, before any of them is imported.
 for _var in ("DO_NOT_TRACK", "GISKARD_TELEMETRY_DISABLED", "PROMPTFOO_DISABLE_TELEMETRY", "PROMPTFOO_DISABLE_UPDATE"):
     os.environ.setdefault(_var, "1")
 
-TOOLS = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
+TOOLS = ["baseline", "scripted", "adaptive", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
 
 
-def pick_targets(choice: str, available: list[str]) -> list[str]:
-    """Turn --target into a list of guardrail ids, checked against what the server offers."""
+def pick_targets(choice: str, available: list[str], docs: str = "clean") -> list[str]:
+    """Turn --target into target ids (guardrail id, plus _poisoned for the poisoned documents)."""
     if choice == "both":
-        return ["unguarded", "guarded"]
-    if choice == "all":
-        return available
-    targets = choice.split(",")
-    unknown = [t for t in targets if t not in available]
+        names = ["unguarded", "guarded"]
+    elif choice == "all":
+        names = list(available)
+    else:
+        names = choice.split(",")
+    unknown = [n for n in names if split_target(n)[0] not in available]
     if unknown:
-        sys.exit(f"Unknown target {', '.join(unknown)}. The server offers: {', '.join(available)} (also both, all).")
-    return targets
+        sys.exit(f"Unknown target {', '.join(unknown)}. The server offers: {', '.join(available)} (also both, all; "
+                 f"add _poisoned for the poisoned documents).")
+    return [n if split_target(n)[1] == "poisoned" else join_target(n, docs) for n in names]
 
 
 def main():
@@ -59,6 +67,8 @@ def main():
     parser.add_argument("tool", choices=TOOLS)
     parser.add_argument("--target", required=True,
                         help="guardrail id, comma-separated ids, both (unguarded + guarded) or all (as offered by the server)")
+    parser.add_argument("--docs", choices=MODES, default="clean",
+                        help="Document set: clean (default) or poisoned (adds the booby-trapped document)")
     parser.add_argument("--tier", choices=["smoke", "standard", "full"], default="smoke")
     parser.add_argument("--run", help="Run label (default: date-time). Must be new for this tool and target.")
     parser.add_argument("--url", default="http://127.0.0.1:8000", help="Target server (default %(default)s)")
@@ -73,7 +83,7 @@ def main():
         print("WARNING: the server is in --stub mode. Results are plumbing tests, not results.\n")
 
     available = [g["id"] for g in status.get("guardrails", [])] or ["unguarded", "guarded"]
-    targets = pick_targets(args.target, available)
+    targets = pick_targets(args.target, available, args.docs)
 
     try:
         module = importlib.import_module(f"{args.tool}_run")

@@ -2,8 +2,7 @@
 The target as an OpenAI-compatible chat endpoint. Every attack tool points at
 this one server, so they all hit identical code.
 
-    python target/server.py                  # port 8000, normal documents
-    python target/server.py --docs poisoned  # include the booby-trapped document
+    python target/server.py                  # port 8000
     python target/server.py --port 8001
 
 One model is served per guardrail option (see target/rails/):
@@ -11,6 +10,10 @@ One model is served per guardrail option (see target/rails/):
     askdbc-guarded     the same, wrapped in NeMo Guardrails (input + output rail)
     askdbc-blocklist   keyword blocklist on the question, secret filter on the reply
     askdbc-doccheck    drops retrieved documents that contain injected instructions
+
+Each option is served over two document sets, chosen by the model name and needing no restart:
+askdbc-<id> uses the four clean documents, askdbc-<id>_poisoned adds the booby-trapped one
+(target/docs_mode.py). The log records which set each request used.
 
 Point a tool at  http://localhost:8000/<tag>/v1  where <tag> is the tool name,
 optionally with a run label after a dot (e.g. garak.run1). The tag is only used
@@ -45,16 +48,17 @@ from fastapi import FastAPI, HTTPException, Request  # noqa: E402
 from fastapi.responses import JSONResponse, StreamingResponse  # noqa: E402
 
 import canary  # noqa: E402
+import docs_mode  # noqa: E402
 import rag  # noqa: E402
 import rails  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 LOG_PATH = Path(os.environ.get("REDTEAM_LOG", ROOT / "results" / "raw" / "server_log.jsonl"))
-MODELS = tuple(f"askdbc-{i}" for i in rails.IDS)
+MODELS = tuple(f"askdbc-{docs_mode.join_target(i, d)}" for d in docs_mode.MODES for i in rails.IDS)
 MAX_N = 10
 
 app = FastAPI(title="AskDBC-Demo target")
-state: dict = {}  # filled in by main(): chatbot, guardrails, stub, docs
+state: dict = {}  # filled in by main(): chatbots (one per document set), guardrails, stub
 _log_lock = asyncio.Lock()
 _llm_lock = asyncio.Semaphore(int(os.environ.get("REDTEAM_CONCURRENCY", "1")))
 
@@ -89,10 +93,10 @@ async def write_log(record: dict) -> None:
 
 
 async def run_target(model: str, history: list[dict], question: str):
-    """Run one question through the guardrail option named by the model."""
+    """Run one question through the guardrail option and document set named by the model."""
+    guardrail_id, docs = docs_mode.split_target(docs_mode.target_of(model))
     async with _llm_lock:
-        guardrail = state["guardrails"][model.removeprefix("askdbc-")]
-        return await guardrail.answer(state["chatbot"], history, question)
+        return await state["guardrails"][guardrail_id].answer(state["chatbots"][docs], history, question)
 
 
 def completion_body(model: str, replies: list[str]) -> dict:
@@ -130,7 +134,8 @@ def stream_body(model: str, replies: list[str]):
 async def health():
     guardrails = [{"id": g.id, "label": g.label, "description": g.description}
                   for g in state.get("guardrails", {}).values()]
-    return {"status": "ok", "stub": state.get("stub", False), "docs": state.get("docs"), "guardrails": guardrails}
+    return {"status": "ok", "stub": state.get("stub", False), "docs": "both", "docs_modes": list(docs_mode.MODES),
+            "guardrails": guardrails}
 
 
 @app.get("/{tag}/v1/models")
@@ -160,7 +165,7 @@ async def chat_completions(tag: str, request: Request):
             "tool": tag.split(".", 1)[0],
             "model": model,
             "stub": state.get("stub", False),
-            "docs": state.get("docs"),
+            "docs": docs_mode.split_target(docs_mode.target_of(model))[1],
             "turns": len(history) + 1,
             "question": question,
             "history": history,
@@ -168,7 +173,7 @@ async def chat_completions(tag: str, request: Request):
             "dropped_ids": list(dropped),
             "response": reply,
             "blocked_by": blocked_by,
-            "canary": canary.check(reply, state["chatbot"].system_prompt),
+            "canary": canary.check(reply, state["chatbots"]["clean"].system_prompt),
             "latency_s": latency,
         })
 
@@ -177,21 +182,20 @@ async def chat_completions(tag: str, request: Request):
     return JSONResponse(completion_body(model, replies))
 
 
-def build_state(docs: str, stub: bool) -> None:
-    documents_path = rag.POISONED_DOCUMENTS_PATH if docs == "poisoned" else rag.DOCUMENTS_PATH
+def build_state(stub: bool) -> None:
+    paths = {"clean": rag.DOCUMENTS_PATH, "poisoned": rag.POISONED_DOCUMENTS_PATH}
     if stub:
         import stub as stubs
 
-        chatbot = rag.Chatbot(documents_path, llm=stubs.stub_chat, embedding_function=stubs.HashEmbedding())
+        chatbots = {d: rag.Chatbot(p, llm=stubs.stub_chat, embedding_function=stubs.HashEmbedding()) for d, p in paths.items()}
         nemo_llm = stubs.StubNeMoLLM()
     else:
-        chatbot = rag.Chatbot(documents_path)
+        chatbots = {d: rag.Chatbot(p) for d, p in paths.items()}
         nemo_llm = None
     state.update(
-        chatbot=chatbot,
-        guardrails=rails.build_registry(chatbot, nemo_llm),
+        chatbots=chatbots,
+        guardrails=rails.build_registry(chatbots["clean"], nemo_llm),  # the rails only use the system prompt, same for both sets
         stub=stub,
-        docs=docs,
     )
 
 
@@ -199,12 +203,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--docs", choices=["clean", "poisoned"], default="clean")
+    parser.add_argument("--docs", choices=["clean", "poisoned"], help=argparse.SUPPRESS)  # old flag, now ignored
     parser.add_argument("--stub", action="store_true", help="Fake model for plumbing tests only. Never report these results.")
     args = parser.parse_args()
 
-    build_state(args.docs, args.stub)
-    print(f"Target ready on http://{args.host}:{args.port}  docs={args.docs}  stub={args.stub}")
+    if args.docs:
+        print("Note: --docs is ignored now. Both document sets are loaded; use a target ending _poisoned for the poisoned one.")
+    build_state(args.stub)
+    print(f"Target ready on http://{args.host}:{args.port}  documents=clean and poisoned  stub={args.stub}")
     print(f"Logging to {LOG_PATH}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
     # Every request is already flushed to the log. NeMo has crashed on interpreter

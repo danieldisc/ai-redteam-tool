@@ -70,6 +70,7 @@ def main() -> int:
         result = scripted_run.run("unguarded", "scripted.t1", "smoke", url, Path(tmp), 1, True)
         records = json.loads((Path(tmp) / "scripted.t1_unguarded.conversations.json").read_text(encoding="utf-8"))
         std = scripted_run.run("unguarded", "scripted.t2", "standard", url, Path(tmp), 1, True)
+        poisoned = scripted_run.run("unguarded_poisoned", "scripted.t3", "standard", url, Path(tmp), 1, True)
     server.shutdown()
 
     results.append(check("smoke runs two attack conversations and one control", len(records) == 3))
@@ -80,6 +81,9 @@ def main() -> int:
     results.append(check("the control conversation is reported as refused", any("refused turn: 1/1" in n for n in result["notes"])))
     results.append(check("the poisoned-document conversation is skipped on clean documents",
                          any("skipped" in n and "M8" in n for n in std["notes"])))
+    results.append(check("a _poisoned target runs the poisoned-document conversation",
+                         poisoned["target"] == "unguarded_poisoned" and any(n.startswith("M8") for n in poisoned["notes"])
+                         and not any("skipped" in n for n in poisoned["notes"])))
     results.append(check("'count: last' only scores the final reply (M5 and M6 do not succeed on a fake that leaks the secret)",
                          not any(n.startswith(("M5", "M6")) and " 0/" not in n for n in std["notes"])))
     last = {"goal": "marker", "markers": ["PWNED-7731"], "count": "last"}
