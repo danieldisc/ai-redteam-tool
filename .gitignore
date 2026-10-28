@@ -9,3 +9,5 @@ node_modules/
 
 # Raw tool output and the server log: large, regenerated on every run.
 results/raw/
+
+oracle.json

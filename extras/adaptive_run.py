@@ -1,4 +1,6 @@
 """
+PARKED (not part of the main tool for now; see extras/README.md to switch it back on).
+
 Adaptive multi-turn attacks with Claude as the attacker.
 
 Claude plays the user in a conversation with the target. Each turn it reads what the target said and
@@ -28,8 +30,10 @@ import os
 import sys
 from pathlib import Path
 
-from common import ROOT, base_url, confirm, model_for, summary
-from scripted_run import ask
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+
+from common import ROOT, base_url, confirm, model_for, summary  # noqa: E402
+from scripted_run import ask  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "target"))
 import canary  # noqa: E402

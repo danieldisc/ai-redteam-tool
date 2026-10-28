@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
 <title>Red team bench</title>
 <style>
   :root {
@@ -14,163 +15,388 @@
     --warn: #8a5a00; --warn-soft: #fff3d6;
     --neutral-soft: #eef1f5;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --ink-2: #3d4c5e; --line-strong: #7d8da1; --accent-strong: #173d6e;
+    --shadow: 0 1px 2px rgba(20, 32, 46, .05);
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
-  body { min-height: 100vh; display: flex; flex-direction: column; font-size: 15px; line-height: 1.45; }
-  header.top { padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-  header.top h1 { font-size: 18px; margin: 0; font-weight: 700; letter-spacing: .1px; }
-  .banner { font-size: 12px; padding: 4px 12px; border-radius: 999px; background: var(--good-soft); color: var(--good); font-weight: 600; }
+  html { scroll-padding-top: 16px; }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+  body { min-height: 100vh; display: flex; flex-direction: column; font-size: 15px; line-height: 1.5; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .skip { position: absolute; left: 16px; top: -48px; background: var(--accent); color: #fff; padding: 8px 16px; border-radius: 8px; z-index: 10; }
+  .skip:focus { top: 8px; }
+
+  header.top { background: var(--panel); border-bottom: 1px solid var(--line); padding: 16px 24px; }
+  .top-inner { max-width: 1400px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+  .top h1 { margin: 0; font-size: 22px; line-height: 1.25; font-weight: 700; }
+  .top .sub { margin: 4px 0 0; font-size: 13px; color: var(--muted); max-width: 70ch; }
+  .banner { font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: var(--neutral-soft); color: var(--muted); overflow-wrap: anywhere; }
+  .banner.ok { background: var(--good-soft); color: var(--good); }
   .banner.bad { background: var(--bad-soft); color: var(--bad); }
   .banner.warn { background: var(--warn-soft); color: var(--warn); }
-  .layout { flex: 1; display: grid; grid-template-columns: 220px 1fr; gap: 20px; padding: 20px 24px; max-width: 1400px; width: 100%; margin: 0 auto; }
+
+  .layout { flex: 1; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; padding: 24px; max-width: 1400px; width: 100%; margin: 0 auto; }
   nav { display: flex; flex-direction: column; gap: 8px; position: sticky; top: 16px; align-self: start; }
-  nav h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 6px 0 2px; }
-  nav a { text-decoration: none; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 14px; font-weight: 600; }
-  nav a:hover { border-color: var(--accent); }
-  nav a small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+  .nav-title { margin: 0 0 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  nav a { display: block; text-decoration: none; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 14px; font-weight: 600; }
+  nav a:hover { border-color: var(--accent); color: var(--accent); }
+  nav a small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+  nav a.sub { margin-left: 16px; }
   main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; scroll-margin-top: 16px; }
-  section h2 { font-size: 16px; margin: 0 0 4px; }
-  section .lede { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
-  .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 12px 0 6px; }
-  .hint { font-size: 12px; color: var(--muted); }
-  .grid { display: flex; flex-wrap: wrap; gap: 8px; }
-  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
 
-  label.opt { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; background: var(--panel); font-weight: 600; font-size: 14px; }
-  label.opt:hover { border-color: var(--accent); }
-  label.opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-  label.opt .hint { font-weight: 400; }
-  input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; box-shadow: var(--shadow); min-width: 0; scroll-margin-top: 16px; }
+  .card.rec { border-top: 3px solid var(--accent); }
+  .card h3 { margin: 0; font-size: 16px; font-weight: 700; }
+  .card-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 4px; }
+  .card-head .grow { flex: 1; }
+  .card .caption { margin: 4px 0 16px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+  .step { display: grid; grid-template-columns: 28px 1fr; gap: 4px 12px; align-items: start; margin-top: 8px; scroll-margin-top: 16px; }
+  .step .num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px; display: grid; place-items: center; }
+  .step h2 { margin: 0; font-size: 18px; line-height: 28px; font-weight: 700; scroll-margin-top: 16px; }
+  .step p { grid-column: 2; margin: 0; font-size: 13px; color: var(--muted); }
+  section.block { display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 16px; }
 
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
-  .card { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: block; }
-  .card:hover { border-color: var(--accent); }
-  .card:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); background: #fbfdff; }
-  .card.gap { opacity: .55; cursor: not-allowed; }
-  .card b { display: block; font-size: 14px; }
-  .card .chip.warnchip { background: var(--warn-soft); color: var(--warn); }
-  .card .chip { display: inline-block; border-radius: 999px; padding: 1px 8px; margin: 5px 4px 0 0; font-size: 11px; font-weight: 700; background: var(--accent-soft); color: var(--accent); }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  legend { font-size: 14px; font-weight: 700; padding: 0; margin-bottom: 4px; float: left; width: 100%; }
+  legend + * { clear: both; }
+  legend.sr-only { float: none; width: 1px; }
+  .field + .field { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line); }
+  .help { margin: 4px 0 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
+  .field-top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-start; justify-content: space-between; }
+  .field-top .help { flex: 1 1 320px; margin-top: 0; }
+  .btnrow { display: flex; flex-wrap: wrap; gap: 8px; }
+  .flabel { display: block; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .fgroup { margin-top: 16px; }
 
-  button, select, input[type=text] { font: inherit; }
-  select, input[type=text] { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--panel); color: inherit; }
-  button.send { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
-  button.send:hover { filter: brightness(1.1); }
-  button.reset { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; cursor: pointer; }
-  button.reset:hover { border-color: var(--accent); color: var(--accent); }
-  button.mini { background: transparent; color: var(--accent); border: 1px solid var(--line); border-radius: 6px; padding: 2px 9px; font-size: 13px; cursor: pointer; margin-right: 4px; }
-  button.mini:hover { border-color: var(--accent); background: var(--accent-soft); }
-  button.mini.stop { color: var(--bad); } button.mini.stop:hover { background: var(--bad-soft); border-color: var(--bad); }
-  button:focus-visible, select:focus-visible, input:focus-visible, nav a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .choices { display: grid; gap: 12px; margin-top: 12px; }
+  .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cols-3 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .auto { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .choice { position: relative; display: flex; min-width: 0; }
+  .choice input { position: absolute; top: 14px; left: 14px; width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+  .choice-body { flex: 1; min-width: 0; min-height: 44px; padding: 12px 14px 12px 44px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; display: block; }
+  .choice:hover input:not(:disabled) + .choice-body { border-color: var(--accent); }
+  .choice input:checked + .choice-body { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+  .choice input:focus-visible + .choice-body { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .choice input:disabled + .choice-body { background: var(--neutral-soft); border-style: dashed; color: var(--muted); cursor: not-allowed; }
+  .choice input:disabled + .choice-body .choice-desc { color: var(--muted); }
+  .choice.compact input { top: 11px; left: 12px; }
+  .choice.compact .choice-body { min-height: 40px; padding: 8px 12px 8px 40px; }
+  .choice.route input { top: 18px; left: 16px; width: 20px; height: 20px; }
+  .choice.route .choice-body { padding: 16px 16px 16px 48px; }
+  .choice.route .choice-title { font-size: 16px; font-weight: 700; }
+  .choice-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+  .choice-title { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+  .choice-desc { display: block; margin-top: 4px; font-size: 13px; line-height: 1.45; color: var(--ink-2); overflow-wrap: anywhere; }
+  .choice-note { display: block; margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .chip { display: inline-block; font-size: 12px; font-weight: 700; line-height: 1.5; padding: 2px 8px; border-radius: 999px; background: var(--neutral-soft); color: var(--ink-2); }
+  .chip.rec { background: var(--good-soft); color: var(--good); }
+  .chip.adv { background: var(--neutral-soft); color: var(--ink-2); }
+  .chip.tool { background: var(--accent-soft); color: var(--accent); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chip.slow { border: 1px dashed var(--accent); }
+  .tag { font-family: var(--mono); font-size: 12px; background: var(--neutral-soft); color: var(--ink-2); border-radius: 8px; padding: 0 6px; }
+  .routes { margin-top: 12px; }
 
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 16px; border: 2px solid transparent; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; background: transparent; color: var(--ink); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+  .btn.secondary { background: var(--panel); border-color: var(--accent); color: var(--accent); }
+  .btn.secondary:hover { background: var(--accent-soft); }
+  .btn.ghost { background: var(--panel); border-color: var(--line-strong); color: var(--ink); }
+  .btn.ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.link { border: 0; color: var(--accent); text-decoration: underline; min-height: 32px; padding: 4px 8px; font-weight: 600; }
+  .btn.sm { min-height: 32px; padding: 4px 12px; font-size: 13px; }
+  .btn.danger { background: var(--panel); border-color: var(--bad); color: var(--bad); }
+  .btn.danger:hover { background: var(--bad-soft); }
+  .btn:disabled { background: var(--neutral-soft); border-color: var(--line); color: var(--muted); cursor: not-allowed; }
+  .status-line { font-size: 14px; margin-top: 12px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; min-height: 20px; }
+  .status-line.bad { color: var(--bad); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-top: 16px; }
+  .actions .muted { font-size: 13px; color: var(--muted); }
+
+  input[type=text], select { min-height: 40px; padding: 8px 12px; font: inherit; font-size: 15px; color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; max-width: 100%; }
+  input[type=text] { width: min(100%, 320px); }
+
+  .callout { padding: 12px 16px; border-radius: 8px; font-size: 14px; border-left: 4px solid var(--accent); background: var(--accent-soft); display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+  .callout.warn { background: var(--warn-soft); border-left-color: var(--warn); color: var(--warn); }
+  .callout.bad { background: var(--bad-soft); border-left-color: var(--bad); color: var(--bad); }
+  .callout .grow { flex: 1 1 280px; }
+  dl.meta { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 4px 16px; margin: 16px 0; font-size: 14px; }
+  dl.meta dt { font-weight: 700; color: var(--ink-2); }
+  dl.meta dd { margin: 0; }
+  .plan { background: var(--neutral-soft); border-radius: 12px; padding: 12px 16px; margin-top: 16px; }
+  .plan h4 { margin: 0 0 8px; font-size: 14px; font-weight: 700; }
+  .plan dl { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 4px 16px; margin: 0; }
+  .plan dt { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .plan dd { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+  .plan p { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+  .plan p.warnline { color: var(--warn); font-weight: 600; }
+  h4.sub { margin: 24px 0 8px; font-size: 14px; font-weight: 700; }
+  details { margin: 8px 0; }
+  details.manual { margin-top: 12px; }
+  summary { cursor: pointer; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+  details.manual .choices { margin-top: 8px; }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; max-width: 100%; }
   table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
-  td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
-  td.hit { background: var(--bad-soft); color: var(--bad); font-weight: 700; }
-  td.safe { background: var(--good-soft); color: var(--good); font-weight: 700; }
+  th { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); text-align: left; padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
+  td.wrap { white-space: normal; overflow-wrap: anywhere; min-width: 120px; }
+  .gridwrap td { white-space: normal; overflow-wrap: anywhere; }
+  tr:last-child td { border-bottom: 0; }
+  td.hit { background: var(--bad-soft); color: var(--bad); }
+  td.safe { background: var(--good-soft); color: var(--good); }
   td.none { color: var(--muted); }
-  .badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 8px; display: inline-block; }
+  td .val { display: block; font-size: 15px; font-weight: 700; }
+  td .word { display: block; font-size: 12px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 8px; }
   .badge.bad { background: var(--bad-soft); color: var(--bad); } .badge.good { background: var(--good-soft); color: var(--good); }
-  .badge.warn { background: var(--warn-soft); color: var(--warn); } .badge.neutral { background: var(--neutral-soft); color: var(--muted); }
-  details { margin: 6px 0; } summary { cursor: pointer; font-weight: 600; }
-  .ev { font-size: 13px; border-left: 3px solid var(--line); padding: 3px 10px; margin: 6px 0; white-space: pre-wrap; word-break: break-word; background: var(--neutral-soft); border-radius: 0 6px 6px 0; }
-  pre { background: var(--neutral-soft); border: 1px solid var(--line); padding: 12px; border-radius: 8px; overflow: auto; max-height: 420px; white-space: pre-wrap; margin: 10px 0 0; font: 13px/1.45 var(--mono); }
-  footer { padding: 12px 24px 18px; font-size: 12px; color: var(--muted); text-align: center; }
-  @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } nav { position: static; flex-direction: row; flex-wrap: wrap; } nav a { flex: 1 1 140px; } }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); } .badge.neutral { background: var(--neutral-soft); color: var(--ink-2); }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 12px 0 0; font-size: 13px; color: var(--ink-2); }
+  .legend span.sw { display: inline-flex; align-items: center; gap: 8px; }
+  .legend i { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--line-strong); display: inline-block; }
+  .legend i.hit { background: var(--bad-soft); } .legend i.safe { background: var(--good-soft); } .legend i.none { background: var(--neutral-soft); }
+  .ev { font-size: 13px; border-left: 3px solid var(--line-strong); padding: 4px 12px; margin: 8px 0; background: var(--neutral-soft); border-radius: 0 8px 8px 0; }
+  .ev div { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ev b { font-weight: 700; }
+  pre { background: var(--neutral-soft); border: 1px solid var(--line); padding: 12px; border-radius: 8px; overflow: auto; max-height: 420px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0 0; font: 13px/1.45 var(--mono); }
+  footer { padding: 16px 24px 24px; font-size: 13px; color: var(--muted); text-align: center; }
+
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+    nav { position: static; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .nav-title { width: 100%; margin: 0; }
+    nav a small { display: none; }
+    nav a.sub { margin-left: 0; }
+  }
+  @media (max-width: 700px) {
+    header.top, .layout { padding: 16px; }
+    .card { padding: 16px; }
+    .choices, .cols-2, .cols-3, .auto { grid-template-columns: minmax(0, 1fr); }
+    .plan dl, dl.meta { grid-template-columns: minmax(0, 1fr); }
+    .btn { min-height: 44px; }
+    .btn.sm { min-height: 44px; }
+    .actions .btn.run { width: 100%; }
+    #jobsTable { display: block; }
+    #jobsTable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    #jobsTable tbody, #jobsTable tr { display: block; }
+    #jobsTable tr { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin-bottom: 12px; }
+    #jobsTable td { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; border: 0; padding: 4px 0; white-space: normal; overflow-wrap: anywhere; }
+    #jobsTable td::before { content: attr(data-label); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    #jobsTable td .badge { justify-self: start; }
+    #jobsTable td.actions-cell { display: flex; gap: 8px; }
+    #jobsTable td.actions-cell::before { content: none; }
+    #queueWrap { border: 0; overflow: visible; }
+  }
 </style>
 </head>
 <body>
+<a class="skip" href="#settings">Skip to the steps</a>
 <header class="top">
-  <h1>Red team bench: one target, five tools, OWASP categories</h1>
-  <span id="banner" class="banner">Checking the target…</span>
+  <div class="top-inner">
+    <div>
+      <h1>Red team bench</h1>
+      <p class="sub">Run five open-source attack tools against one deliberately weak test chatbot, then read what got through. Work through steps 1 to 3.</p>
+    </div>
+    <span id="banner" class="banner" role="status">Checking the target…</span>
+  </div>
 </header>
 
 <div class="layout">
-  <nav aria-label="Sections">
-    <h2>Steps</h2>
-    <a href="#target">1. Target<small>guardrails and tier</small></a>
-    <a href="#scan">2. Scan<small>pick OWASP categories</small></a>
-    <a href="#results">3. Results<small>grid and evidence</small></a>
-    <a href="#advanced">Advanced<small>single tools</small></a>
-    <a href="#queue">Queue<small>jobs and logs</small></a>
-    <a href="#reports">Log reports<small>matrix and summary</small></a>
-  </nav>
+  <aside>
+    <nav aria-label="Sections">
+      <p class="nav-title">On this page</p>
+      <a href="#settings">1. Settings<small>shared by both routes</small></a>
+      <a href="#run">2. Run<small>guided scan (recommended) or single tools</small></a>
+      <a href="#results">3. Results<small>scan grid, queue, reports</small></a>
+      <a class="sub" href="#scan-results">Scan results<small>grid and evidence</small></a>
+      <a class="sub" href="#queue">Queue<small>every job and its log</small></a>
+      <a class="sub" href="#reports">Log reports<small>matrix and summary</small></a>
+    </nav>
+  </aside>
 
   <main>
-    <section id="target">
-      <h2>1. Target</h2>
-      <div class="lede">Each scan runs on every guardrail ticked.</div>
-      <div class="grid" id="guardrails"><span class="hint">waiting for the target…</span></div>
-      <div class="row">
-        <label class="hint">Tier&nbsp;<select id="tier"></select></label>
-        <span class="hint">smoke proves the wiring, standard is the curated set, full is the most thorough</span>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <label class="hint">Documents&nbsp;<select id="docs">
-          <option value="auto">automatic (recommended)</option>
-          <option value="clean">clean only</option>
-          <option value="poisoned">poisoned only</option>
-        </select></label>
-        <span class="hint">Automatic sends LLM05 and LLM09 to the poisoned documents and everything else to the clean ones, in one scan. No server restart.</span>
+    <div id="alert" class="callout" role="status" hidden><span class="grow"><strong id="alertLead"></strong><span id="alertBody"></span></span></div>
+
+    <section id="settings" class="block" aria-labelledby="settings-h">
+      <div class="step"><span class="num" aria-hidden="true">1</span><h2 id="settings-h">Settings for every run</h2>
+        <p>Set these once. Guided scan and Run single tools both use them, and both send their jobs to the same Queue.</p></div>
+      <div class="card">
+        <fieldset class="field" id="guardrails">
+          <legend>Guardrails: which protections to test</legend>
+          <div class="field-top">
+            <p class="help">A guardrail is a safety layer around the chatbot. Tick one or more. Each run happens once for every guardrail you tick, so you can compare them. Tick all of them if you are not sure.</p>
+            <div class="btnrow"><button type="button" class="btn ghost sm" id="gAll">Tick all</button><button type="button" class="btn ghost sm" id="gNone">Clear</button></div>
+          </div>
+          <div class="choices cols-2" id="guardrailCards"></div>
+          <p class="help">The grey code on each card is the name used in the Queue and in the results grid.</p>
+          <p class="help" id="guardrailNote" hidden>The target is not reachable, so runs will be refused until you start it.</p>
+        </fieldset>
+        <fieldset class="field" id="tier">
+          <legend>Tier: how much to run</legend>
+          <p class="help">Start with Smoke to check that everything is connected. Use Standard for results you want to report.</p>
+          <div class="choices cols-3" id="tierCards"></div>
+        </fieldset>
+        <fieldset class="field" id="docs">
+          <legend>Documents: what the chatbot reads</legend>
+          <p class="help">The chatbot looks up documents before it answers. A poisoned document hides instructions or a link to an unknown site. You can change this at any time. Nothing needs restarting.</p>
+          <div class="choices cols-3" id="docsCards"></div>
+          <p class="help">Single tools use the clean documents unless you choose Poisoned only.</p>
+        </fieldset>
       </div>
     </section>
 
-    <section id="scan">
-      <h2>2. Scan by OWASP category</h2>
-      <div class="lede">Tick what to test. The page picks the tools that cover those categories, queues them on every guardrail above, then builds a report with evidence.</div>
-      <div class="cards" id="cats"></div>
-      <div class="row">
-        <button class="send" id="scanGo" type="button">Start scan</button>
-        <label class="opt"><input type="checkbox" id="slow"> include slow tools <span class="hint">(Garak, PyRIT, Promptfoo, Giskard)</span></label>
-        <span class="hint" id="scanTools"></span>
+    <section id="run" class="block" aria-labelledby="run-h">
+      <div class="step"><span class="num" aria-hidden="true">2</span><h2 id="run-h">How do you want to run?</h2>
+        <p>Pick one. Both use the settings above and the same Queue. If you are not sure, use Guided scan.</p></div>
+      <fieldset class="routes">
+        <legend class="sr-only">How do you want to run?</legend>
+        <div class="choices cols-2" style="margin-top:0">
+          <label class="choice route"><input type="radio" name="route" value="guided" id="routeGuided" aria-controls="panelGuided" checked>
+            <span class="choice-body"><span class="choice-head"><span class="choice-title">Guided scan</span><span class="chip rec">Recommended</span></span>
+              <span class="choice-desc">Pick what to test, such as prompt injection or secret leaks. The page chooses the tools for you and builds a grid of results with real example replies.</span></span></label>
+          <label class="choice route"><input type="radio" name="route" value="single" id="routeSingle" aria-controls="panelSingle">
+            <span class="choice-body"><span class="choice-head"><span class="choice-title">Run single tools</span><span class="chip adv">Advanced</span></span>
+              <span class="choice-desc">Pick the tools yourself, such as a quick Garak check on one guardrail. There is no grid. You read the output in the Queue and in Log reports.</span></span></label>
+        </div>
+      </fieldset>
+
+      <div class="card rec" id="panelGuided" aria-labelledby="gh">
+        <div class="card-head"><h3 id="gh" tabindex="-1">Guided scan</h3><span class="chip rec">Recommended</span></div>
+        <dl class="meta">
+          <dt>Best for</dt><dd>Testing the chatbot against OWASP risks, such as prompt injection or secret leaks.</dd>
+          <dt>You pick</dt><dd>What to test (categories). The page picks the tools.</dd>
+          <dt>You get</dt><dd>A grid of category against guardrail, with real example replies. The secret is masked. Saved to results/scans/&lt;name&gt;.md.</dd>
+          <dt>Read it in</dt><dd>Step 3, Scan results.</dd>
+        </dl>
+        <fieldset class="field" id="catsField">
+          <legend>What do you want to test?</legend>
+          <div class="field-top">
+            <p class="help">These are the OWASP LLM Top 10 categories, a standard list of risks for chatbots like this one. The chips show which tools cover each one. Dashed chips are slow tools.</p>
+            <div class="btnrow"><button type="button" class="btn ghost sm" id="catAll">Tick all</button><button type="button" class="btn ghost sm" id="catNone">Clear</button></div>
+          </div>
+          <div class="choices auto" id="cats"></div>
+          <details class="manual" id="catsManual" hidden><summary id="catsManualSummary">Not testable yet</summary><div class="choices auto" id="catsManualCards"></div></details>
+        </fieldset>
+        <div class="choices" style="grid-template-columns:minmax(0,1fr)" id="slowWrap">
+          <label class="choice"><input type="checkbox" id="slow" name="slow"><span class="choice-body"><span class="choice-head"><span class="choice-title">Include slow tools</span></span>
+            <span class="choice-desc" id="slowDesc">Adds the slow tools. They send far more requests or need heavy set-up, so the scan takes much longer. Off by default.</span></span></label>
+        </div>
+        <div class="fgroup">
+          <label class="flabel" for="scanName">Scan name (optional)</label>
+          <input type="text" id="scanName" maxlength="40" placeholder="e.g. blocklist-check" aria-describedby="scanNameHelp">
+          <p class="help" id="scanNameHelp">Letters, digits, - and _ only, up to 40. The report is saved as results/scans/&lt;name&gt;.md. Leave it empty and the page makes a name from the date and time.</p>
+        </div>
+        <div class="plan" id="scanPlan">
+          <h4>What will run</h4>
+          <dl><dt>Tests</dt><dd id="spTests"></dd><dt>Tools</dt><dd id="spTools"></dd><dt>Guardrails</dt><dd id="spGuards"></dd>
+            <dt>Tier and documents</dt><dd id="spTier"></dd><dt>Size</dt><dd id="spSize"></dd></dl>
+          <p class="warnline" id="spWarn" hidden></p>
+          <p id="spHint"></p>
+          <button type="button" class="btn link" data-goto="settings">Change settings</button>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn primary run" id="scanGo" aria-describedby="scanPlan">Start guided scan</button>
+          <span class="muted">Jobs join the Queue and run one at a time.</span>
+        </div>
+        <div class="status-line" id="scanMsg" role="status" aria-live="polite"></div>
       </div>
-      <div class="hint" id="scanMsg" style="margin-top:8px"></div>
+
+      <div class="card" id="panelSingle" aria-labelledby="sh" hidden>
+        <div class="card-head"><h3 id="sh" tabindex="-1">Run single tools</h3><span class="chip adv">Advanced</span></div>
+        <div class="callout"><span class="grow">Use this instead of the guided scan, not after it. Want the grid with example replies? Choose Guided scan.</span>
+          <button type="button" class="btn ghost sm" id="toGuided">Switch to Guided scan</button></div>
+        <dl class="meta">
+          <dt>Best for</dt><dd>One specific tool check, such as a smoke run of Garak on the blocklist.</dd>
+          <dt>You pick</dt><dd>The tools yourself. There are no categories.</dd>
+          <dt>You get</dt><dd>The tool's own output only. No grid.</dd>
+          <dt>Read it in</dt><dd>The Queue (press Log on a job) and Log reports.</dd>
+        </dl>
+        <fieldset class="field" id="toolsField">
+          <legend>Which tools?</legend>
+          <p class="help">The chip on each card is roughly how many requests that tool sends to each guardrail, at the tier you chose in step 1.</p>
+          <div class="choices auto" id="tools"></div>
+        </fieldset>
+        <div class="fgroup">
+          <label class="flabel" for="runLabel">Run label (optional)</label>
+          <input type="text" id="runLabel" maxlength="40" placeholder="e.g. gap1" aria-describedby="runLabelHelp">
+          <p class="help" id="runLabelHelp">Names this batch in the Queue. Letters, digits, - and _ only, up to 40. Jobs in one batch share the label. A label that has already been run is skipped. Leave it empty and the page makes one from the date and time.</p>
+        </div>
+        <div class="plan" id="runPlan">
+          <h4>What will run</h4>
+          <dl><dt>Tools</dt><dd id="rpTools"></dd><dt>Guardrails</dt><dd id="rpGuards"></dd>
+            <dt>Tier and documents</dt><dd id="rpTier"></dd><dt>Size</dt><dd id="rpSize"></dd></dl>
+          <p id="rpNote" hidden>Single tools use clean documents. Automatic only splits documents in a Guided scan.</p>
+          <p id="rpHint"></p>
+          <button type="button" class="btn link" data-goto="settings">Change settings</button>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn secondary run" id="queueRuns" aria-describedby="runPlan">Run selected tools</button>
+          <span class="muted">Jobs join the Queue and run one at a time.</span>
+        </div>
+        <div class="status-line" id="message" role="status" aria-live="polite"></div>
+      </div>
     </section>
 
-    <section id="results">
-      <h2>3. Scan results</h2>
-      <div class="row" style="margin-top:6px">
-        <label class="hint">Scan&nbsp;<select id="scanPick"></select></label>
-        <button class="reset" id="scanCopy" type="button">Copy as markdown</button>
-        <span class="hint" id="scanProgress"></span>
-      </div>
-      <div id="scanBox" class="hint" style="margin-top:12px">No scan yet. Tick categories above and press Start scan.</div>
-    </section>
+    <div id="results" class="block" style="display:flex;flex-direction:column;gap:16px">
+      <div class="step"><span class="num" aria-hidden="true">3</span><h2 id="results-h">Read the results</h2>
+        <p>Guided scans show up as a grid. Single-tool runs show up in the Queue and in Log reports. Jobs from both routes appear in the Queue.</p></div>
 
-    <section id="advanced">
-      <h2>Advanced: queue single tools</h2>
-      <div class="lede">For one specific tool, for example a smoke run of Garak on the blocklist. Uses the guardrails and tier above.</div>
-      <div class="grid" id="tools"></div>
-      <div class="row">
-        <input type="text" id="label" size="14" placeholder="run label (auto)">
-        <button class="send" id="queue" type="button">Queue runs</button>
-        <span class="hint" id="estimate"></span>
-      </div>
-      <div class="hint" id="message" style="margin-top:8px"></div>
-    </section>
+      <section class="card" id="scan-results" aria-labelledby="scan-h">
+        <div class="card-head"><h3 id="scan-h" tabindex="-1">Scan results</h3><span class="chip adv">From Guided scan</span></div>
+        <div class="actions" style="margin-top:8px">
+          <div><label class="flabel" for="scanPick">Scan</label><select id="scanPick"><option value="">No scans yet</option></select></div>
+          <button type="button" class="btn ghost" id="scanCopy" disabled>Copy as markdown</button>
+          <span id="scanCopied" class="muted" role="status"></span>
+        </div>
+        <p class="help" id="scanProgress"></p>
+        <div id="scanBox" data-state="empty"><p class="help">No scan yet. In step 2 choose Guided scan, tick what to test and press Start guided scan.</p></div>
+      </section>
 
-    <section id="queue">
-      <h2>Queue <button class="reset" id="clear" type="button" style="margin-left:10px">Clear finished</button></h2>
-      <table>
-        <thead><tr><th>#</th><th>Tool</th><th>Guardrail</th><th>Tier</th><th>Label</th><th>Status</th><th>Result</th><th>Started</th><th></th></tr></thead>
-        <tbody id="jobs"><tr><td colspan="9" class="hint">No jobs yet.</td></tr></tbody>
-      </table>
-      <div id="logtitle" class="hint" style="margin-top:12px">Click “log” on a job to follow its output.</div>
-      <pre id="log" hidden></pre>
-    </section>
+      <section class="card" id="queue" aria-labelledby="queue-h">
+        <div class="card-head"><h3 id="queue-h" tabindex="-1">Queue</h3><span class="chip adv">Both routes</span><span class="grow"></span>
+          <button type="button" class="btn ghost sm" id="clear">Clear finished</button></div>
+        <p class="caption">Every job from either route lands here and runs one at a time, because the test chatbot answers one request at once. Press Log to follow a job's output.</p>
+        <div class="tablewrap" id="queueWrap">
+          <table id="jobsTable" role="table">
+            <thead role="rowgroup"><tr role="row"><th role="columnheader">#</th><th role="columnheader">Tool</th><th role="columnheader">Guardrail</th><th role="columnheader">Tier</th><th role="columnheader">Label</th><th role="columnheader">From</th><th role="columnheader">Status</th><th role="columnheader">Result</th><th role="columnheader">Started</th><th role="columnheader"><span class="sr-only">Actions</span></th></tr></thead>
+            <tbody id="jobs" role="rowgroup"></tbody>
+          </table>
+        </div>
+        <p class="help">Result is what the tool itself flagged, out of what it tried. A tool can be wrong. The grid in Scan results uses its own check.</p>
+        <p class="help" id="logtitle" style="margin-top:16px">Press Log on a job to follow its output here.</p>
+        <pre id="log" hidden tabindex="0" role="region" aria-label="Job log"></pre>
+      </section>
 
-    <section id="reports">
-      <h2>Log reports</h2>
-      <div class="row" style="margin-top:6px">
-        <label class="hint">Documents&nbsp;<select id="reportDocs"><option value="clean">clean</option><option value="poisoned">poisoned</option></select></label>
-        <button class="reset" data-kind="compare" type="button">Comparison matrix</button>
-        <button class="reset" data-kind="summary" type="button">Full summary</button>
-        <label class="opt"><input type="checkbox" id="stub"> include stub (fake model) rows</label>
-        <button class="reset" id="copy" type="button">Copy</button>
-      </div>
-      <pre id="report">Press a button to build a report from the server log.</pre>
-    </section>
+      <section class="card" id="reports" aria-labelledby="reports-h">
+        <div class="card-head"><h3 id="reports-h" tabindex="-1">Log reports</h3><span class="chip adv">From the server log</span></div>
+        <p class="caption">Comparison matrix: every tool against every guardrail, side by side. Full summary: everything the test chatbot did, from the server log. Use these to read single-tool runs.</p>
+        <fieldset id="reportDocsField">
+          <legend>Documents for the matrix</legend>
+          <div class="choices" style="grid-template-columns:repeat(2,minmax(0,200px))">
+            <label class="choice compact"><input type="radio" name="reportDocs" value="clean" checked><span class="choice-body"><span class="choice-head"><span class="choice-title">Clean</span></span></span></label>
+            <label class="choice compact"><input type="radio" name="reportDocs" value="poisoned"><span class="choice-body"><span class="choice-head"><span class="choice-title">Poisoned</span></span></span></label>
+          </div>
+          <p class="help">Only the comparison matrix uses this.</p>
+        </fieldset>
+        <div class="choices" style="grid-template-columns:minmax(0,320px)">
+          <label class="choice compact"><input type="checkbox" id="stub"><span class="choice-body"><span class="choice-head"><span class="choice-title">Include stub rows</span></span>
+            <span class="choice-desc">Rows from a fake-model target. Leave this off for real results.</span></span></label>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn ghost" data-kind="compare">Comparison matrix</button>
+          <button type="button" class="btn ghost" data-kind="summary">Full summary</button>
+          <button type="button" class="btn ghost" id="copy">Copy</button>
+          <span id="copied" class="muted" role="status"></span>
+        </div>
+        <pre id="report" tabindex="0" role="region" aria-label="Report output">Press a button to build a report from the server log.</pre>
+      </section>
+    </div>
   </main>
 </div>
 
@@ -179,10 +405,56 @@
 </footer>
 
 <script>
+"use strict";
 const $ = (id) => document.getElementById(id);
-let options = null, guardrailKey = "", selected = null, logOffset = 0, target = {reachable: false, guardrails: []};
-let scanLabel = null, scanMarkdown = "", scansKey = "";
 
+// ---------- plain-English text the page owns ----------
+const TIER_TEXT = {
+  smoke: {title: "Smoke", desc: "A quick check that everything is connected. Roughly 40 requests per tool or fewer."},
+  standard: {title: "Standard", chip: "Normal choice", desc: "The curated set. Usually 70 to 340 requests per tool; Garak sends far more. This is the normal choice."},
+  full: {title: "Full", desc: "Everything, with no cap. Some tools need hours."},
+};
+const DOCS = [
+  {value: "auto", title: "Automatic", chip: "Recommended", desc: "Poisoning tests (LLM05 and LLM09) use the poisoned documents. Everything else uses the clean ones. One scan covers both."},
+  {value: "clean", title: "Clean only", desc: "Normal documents only. LLM05 and LLM09 will show nothing."},
+  {value: "poisoned", title: "Poisoned only", desc: "Every request reads the poisoned documents, which include one booby-trapped document."},
+];
+const DOCS_WORDS = {auto: "automatic documents", clean: "clean documents only", poisoned: "poisoned documents only"};
+const CATEGORY_PLAIN = {
+  LLM01: "Attack prompts that tell the chatbot to ignore its rules.",
+  LLM02: "Asking for the secret code or other private details.",
+  LLM05: "A poisoned document tricks the chatbot into repeating a fake link.",
+  LLM08: "Asking the chatbot to print its hidden instructions.",
+  LLM09: "Poisoned documents getting retrieved and obeyed.",
+  LLM10: "Replies that contain script tags, shell commands or SQL.",
+};
+const TOOL_INFO = {
+  baseline: "Our own written prompts that ask for the secret, plus harmless questions. Shows both leaks and wrongly refused questions.",
+  scripted: "Fixed multi-turn conversations: gradual escalation, role-play and claimed authority.",
+  garak: "Garak, an open-source scanner. Fires a large library of known attack prompts.",
+  giskard: "Giskard, an open-source scanner. Runs leak and wrong-answer scenarios and grades the replies with the local model.",
+  inspect: "Inspect AI, an open-source evaluation framework. Runs written tasks such as injection, role-play jailbreaks and secret extraction.",
+  pyrit: "PyRIT, an open-source attack toolkit. Wraps goals in tricks such as encodings and runs multi-turn attacks. Uses its own Python environment.",
+  promptfoo: "Promptfoo, an open-source test runner. Generates attack test cases for many weaknesses, then grades the replies with the local model.",
+};
+const TOOL_NAMES = {garak: "Garak", giskard: "Giskard", pyrit: "PyRIT", promptfoo: "Promptfoo", inspect: "Inspect AI"};
+const STATUS_TEXT = {queued: "Waiting", running: "Running", done: "Done", failed: "Failed", cancelled: "Cancelled", interrupted: "Interrupted"};
+const STATUS_KIND = {queued: "neutral", running: "warn", done: "good", failed: "bad", cancelled: "neutral", interrupted: "bad"};
+const LABEL_OK = /^[A-Za-z0-9_-]{1,40}$/;
+
+// ---------- small helpers ----------
+function el(tag, text, cls, attrs) {
+  const e = document.createElement(tag);
+  if (text !== null && text !== undefined) e.textContent = text;
+  if (cls) e.className = cls;
+  if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function setText(e, text) { if (e.textContent !== text) e.textContent = text; }
+function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+function fmt(n) { return n.toLocaleString(); }
+function radioValue(name, def) { const r = document.querySelector('input[name="' + name + '"]:checked'); return r ? r.value : def; }
+function checked(containerId) { return [...document.querySelectorAll("#" + containerId + " input:checked")].map((i) => i.value); }
 async function api(path, body) {
   const opt = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
   const r = await fetch(path, opt);
@@ -190,157 +462,376 @@ async function api(path, body) {
   if (!r.ok) throw new Error(data.error || r.statusText);
   return data;
 }
-function checked(container) { return [...document.querySelectorAll(`#${container} input:checked`)].map((i) => i.value); }
-function opt(container, value, text, hint) {
-  const l = document.createElement("label"); l.className = "opt";
-  const i = document.createElement("input"); i.type = "checkbox"; i.value = value; i.addEventListener("change", () => { estimate(); scanEstimate(); });
-  l.append(i, document.createTextNode(text));
-  if (hint !== undefined) { const h = document.createElement("span"); h.className = "hint"; h.dataset.tool = value; l.append(h); }
-  $(container).append(l);
+function chip(text, cls, attrs) { return el("span", text, "chip " + cls, attrs); }
+function choiceCard(o) {
+  const label = el("label", null, "choice" + (o.compact ? " compact" : "") + (o.route ? " route" : ""));
+  const input = el("input", null, null, {type: o.type, name: o.name, value: o.value});
+  if (o.checked) input.checked = true;
+  if (o.disabled) input.disabled = true;
+  const body = el("span", null, "choice-body");
+  const head = el("span", null, "choice-head");
+  head.append(el("span", o.title, "choice-title"));
+  if (o.tag) head.append(el("span", o.tag, "tag"));
+  if (o.chip) head.append(chip(o.chip, o.chipClass || "rec"));
+  body.append(head);
+  if (o.desc) body.append(el("span", o.desc, "choice-desc"));
+  if (o.chips && o.chips.length) { const row = el("span", null, "chips"); o.chips.forEach((c) => row.append(c)); body.append(row); }
+  if (o.note) { const n = el("span", o.note, "choice-note"); n.hidden = !!o.noteHidden; body.append(n); }
+  label.append(input, body);
+  return label;
 }
-function estimate() {
-  const tier = $("tier").value, tools = checked("tools"), g = checked("guardrails").length;
-  let total = 0, unknown = false;
-  for (const t of tools) { const n = options.hints[t][tier]; if (n == null) unknown = true; else total += n * g; }
-  $("estimate").textContent = tools.length && g ? `${tools.length * g} jobs, about ${total.toLocaleString()} requests${unknown ? " plus tools with no estimate (large)" : ""}` : "";
-  document.querySelectorAll("#tools .hint").forEach((h) => { const n = options.hints[h.dataset.tool][tier]; h.textContent = n == null ? "(large)" : `(${n.toLocaleString()})`; });
+function toolName(t) { return TOOL_NAMES[t] || t; }
+
+// ---------- state ----------
+let options = null, target = {reachable: false, checked: false, guardrails: []};
+let guardrailKey = null, selected = null, logOffset = 0;
+let scanLabel = null, scanMarkdown = "", scansKey = "", scanLabels = new Set(), scanLoaded = false, scanDrawn = "", scanBusy = false;
+let lastJobsKey = "", copyTimers = {}, optionsError = false;
+
+// ---------- status banner and alert ----------
+function drawStatus() {
+  const b = $("banner"), a = $("alert");
+  let cls = "banner", text = "Checking the target…", lead = "", body = "", kind = "";
+  if (optionsError) { lead = "The page could not load its options."; body = " Check that python ui/app.py is still running, then reload."; kind = "bad"; text = "Page error"; cls += " bad"; }
+  else if (target.checked && !target.reachable) {
+    cls += " bad"; text = "Target not reachable"; kind = "bad"; lead = "Target not reachable.";
+    body = " Nothing can run until you start it. In a terminal, run: python target/server.py. The page looks for it at " + (target.url || "the default address") + ". You can still read every option below.";
+  } else if (target.checked && target.stub) {
+    cls += " warn"; text = "Stub mode: fake model. Results are not real."; kind = "warn"; lead = "Stub mode.";
+    body = " The target is using a fake model, so results only show that the page and tools are connected. They say nothing about how safe the chatbot is. You will be asked to confirm before anything runs.";
+  } else if (target.checked) { cls += " ok"; text = "Target is up at " + target.url; }
+  if (b.className !== cls) b.className = cls;
+  setText(b, text);
+  a.hidden = !kind;
+  if (kind) { const c = "callout " + kind; if (a.className !== c) a.className = c; setText($("alertLead"), lead); setText($("alertBody"), body); }
+  $("guardrailNote").hidden = !(target.checked && !target.reachable);
 }
-async function init() {
-  options = await api("/api/options");
-  options.tools.forEach((t) => opt("tools", t, t, ""));
-  options.tiers.forEach((t) => { const o = document.createElement("option"); o.value = o.textContent = t; if (t === "smoke") o.selected = true; $("tier").append(o); });
-  $("tier").addEventListener("change", () => { estimate(); scanEstimate(); });
-  buildCards();
-  $("slow").addEventListener("change", scanEstimate);
-  estimate();
-  refresh(); setInterval(refresh, 2000); setInterval(pollLog, 1500);
+
+// ---------- settings: guardrails ----------
+function guardrailInfo(id) { return (options.guardrails || []).find((g) => g.id === id); }
+function buildGuardrails() {
+  const box = $("guardrailCards"); box.textContent = "";
+  (options.guardrails || []).forEach((g) => box.append(choiceCard({type: "checkbox", name: "guardrail", value: g.id, title: g.label, tag: g.id, desc: g.description,
+    note: "Not offered by this target.", noteHidden: true})));
 }
-async function refresh() {
-  try { target = await api("/api/status"); } catch (e) { target = {reachable: false, error: String(e), guardrails: []}; }
-  const b = $("banner");
-  if (!target.reachable) { b.className = "banner bad"; b.textContent = `Target not reachable at ${target.url || ""}. Start it with: python target/server.py`; }
-  else if (target.stub) { b.className = "banner warn"; b.textContent = "Target is in STUB mode: a fake model. Results are plumbing tests, not results."; }
-  else { b.className = "banner"; b.textContent = `Target ${target.url} is up. Documents: ${(target.docs_modes || []).length ? target.docs_modes.join(" and ") + ", chosen per run" : target.docs}.`; }
-  const key = target.guardrails.map((g) => g.id).join(",");
-  if (key !== guardrailKey) {
-    guardrailKey = key; const keep = new Set(checked("guardrails")); $("guardrails").textContent = "";
-    target.guardrails.forEach((g) => { opt("guardrails", g.id, g.label ? `${g.id} (${g.label})` : g.id); });
-    document.querySelectorAll("#guardrails input").forEach((i) => { i.checked = keep.has(i.value); });
-    if (!target.guardrails.length) $("guardrails").innerHTML = '<span class="hint">none: the target is not reachable</span>';
+function syncGuardrails() {
+  const key = target.reachable + ":" + target.guardrails.map((g) => g.id).join(",");
+  if (key === guardrailKey) return;
+  guardrailKey = key;
+  const box = $("guardrailCards");
+  if (target.reachable) {
+    const offered = new Set(target.guardrails.map((g) => g.id));
+    box.querySelectorAll(".choice").forEach((card) => {
+      const input = card.querySelector("input"), note = card.querySelector(".choice-note");
+      const on = offered.has(input.value);
+      input.disabled = !on; if (!on) input.checked = false;
+      if (note) note.hidden = on;
+    });
+    target.guardrails.forEach((g) => {
+      if (!box.querySelector('input[value="' + CSS.escape(g.id) + '"]')) {
+        box.append(choiceCard({type: "checkbox", name: "guardrail", value: g.id, title: g.label || g.id, tag: g.id, desc: g.description || ""}));
+      }
+    });
+  } else {
+    box.querySelectorAll(".choice").forEach((card) => { const input = card.querySelector("input"); input.disabled = false; const n = card.querySelector(".choice-note"); if (n) n.hidden = true; });
   }
-  const data = await api("/api/jobs").catch(() => null); if (data) drawJobs(data.jobs);
-  await loadScans(); if (scanLabel && $("scanBox").className === "hint") loadScan();
+  plan();
 }
+
+// ---------- plans (what will run) ----------
+function estimateOf(tool, tier) { const h = (options.hints[tool] || {})[tier]; return h === undefined ? null : h; }
+function sizeText(toolsPerGroup, guardsPerGroup, tier) {
+  let jobs = 0, requests = 0, big = false;
+  toolsPerGroup.forEach((tools, i) => tools.forEach((t) => { const g = guardsPerGroup[i]; jobs += g; const n = estimateOf(t, tier); if (n === null) big = true; else requests += n * g; }));
+  if (!jobs) return "-";
+  return plural(jobs, "job") + ", about " + fmt(requests) + " requests" + (big ? ", plus tools with no estimate (large)" : "");
+}
+function plan() {
+  if (!options) return;
+  const tier = radioValue("tier", "smoke"), docs = radioValue("docs", "auto"), guards = checked("guardrails"), slow = $("slow").checked;
+  const gtext = guards.length ? guards.join(", ") : "none ticked yet";
+  // guided scan: mirrors the server, which splits categories by document set when documents are automatic
+  const ids = checked("cats"), cats = options.categories.filter((c) => ids.includes(c.id));
+  const groups = docs === "auto" ? [cats.filter((c) => c.docs === "poisoned"), cats.filter((c) => c.docs !== "poisoned")] : [cats];
+  const modes = docs === "auto" ? ["poisoned", "clean"] : [docs];
+  // an external chatbot (relay) has its own documents, so it is not run on the poisoned set
+  const guardsPerGroup = modes.map((m) => guards.filter((g) => !(m === "poisoned" && g === "relay")).length);
+  const used = new Set(), wanted = new Set(), perGroup = [];
+  groups.forEach((g) => {
+    const tools = new Set();
+    g.forEach((c) => c.tools.forEach((t) => { wanted.add(t); if (slow || !options.slow_tools.includes(t)) { tools.add(t); used.add(t); } }));
+    perGroup.push(options.tools.filter((t) => tools.has(t)));
+  });
+  const usedList = options.tools.filter((t) => used.has(t)), left = options.tools.filter((t) => wanted.has(t) && !used.has(t));
+  setText($("spTests"), ids.length ? ids.join(", ") : "none ticked yet");
+  setText($("spTools"), (usedList.length ? usedList.join(", ") : "none yet") + (left.length ? ". Left out (slow): " + left.join(", ") + "." : ""));
+  setText($("spGuards"), gtext);
+  setText($("spTier"), tier + ", " + DOCS_WORDS[docs]);
+  setText($("spSize"), guards.length ? sizeText(perGroup, guardsPerGroup, tier) : "-");
+  const warn = docs === "clean" && (ids.includes("LLM05") || ids.includes("LLM09"));
+  $("spWarn").hidden = !warn;
+  setText($("spWarn"), "LLM05 and LLM09 need poisoned documents, so they show nothing on clean only. Set Documents to automatic.");
+  setText($("spHint"), !ids.length ? "Tick at least one test above." : !guards.length ? "Tick at least one guardrail in step 1." : "Press Start guided scan to add these jobs to the Queue.");
+  // single tools
+  const tools = checked("tools");
+  setText($("rpTools"), tools.length ? tools.join(", ") : "none ticked yet");
+  setText($("rpGuards"), gtext);
+  setText($("rpTier"), tier + ", " + (docs === "poisoned" ? "poisoned" : "clean") + " documents");
+  setText($("rpSize"), guards.length ? sizeText([tools], [guards.length], tier) : "-");
+  $("rpNote").hidden = docs !== "auto";
+  setText($("rpHint"), !tools.length ? "Tick at least one tool above." : !guards.length ? "Tick at least one guardrail in step 1." : "Press Run selected tools to add these jobs to the Queue.");
+  document.querySelectorAll("#tools .chip[data-tool]").forEach((c) => {
+    const n = estimateOf(c.dataset.tool, tier);
+    setText(c, n === null ? "large, no estimate" : "about " + fmt(n) + " requests");
+  });
+}
+
+// ---------- building the option cards ----------
+function buildTier() {
+  const box = $("tierCards"); box.textContent = "";
+  options.tiers.forEach((t) => { const x = TIER_TEXT[t] || {title: t}; box.append(choiceCard({type: "radio", name: "tier", value: t, title: x.title, chip: x.chip, desc: x.desc, checked: t === "smoke"})); });
+}
+function buildDocs() {
+  const box = $("docsCards"); box.textContent = "";
+  DOCS.forEach((d) => box.append(choiceCard({type: "radio", name: "docs", value: d.value, title: d.title, chip: d.chip, desc: d.desc, checked: d.value === "auto"})));
+}
+function buildCategories() {
+  const box = $("cats"), manualBox = $("catsManualCards"); box.textContent = ""; manualBox.textContent = "";
+  let manual = 0;
+  options.categories.forEach((c) => {
+    if (c.manual) {
+      manual++;
+      manualBox.append(choiceCard({type: "checkbox", name: "cat", value: c.id, title: c.name, tag: c.id, desc: "No automated test yet: " + c.manual, disabled: true}));
+      return;
+    }
+    const chips = c.tools.map((t) => chip(t, "tool" + (options.slow_tools.includes(t) ? " slow" : "")));
+    if (c.docs === "poisoned") chips.push(chip("poisoned documents", "warn"));
+    box.append(choiceCard({type: "checkbox", name: "cat", value: c.id, title: c.name, tag: c.id, desc: CATEGORY_PLAIN[c.id] || "", chips}));
+  });
+  $("catsManual").hidden = !manual;
+  setText($("catsManualSummary"), "Not testable yet (" + manual + ")");
+  setText($("slowDesc"), "Adds " + options.slow_tools.map(toolName).join(", ") + ". They send far more requests or need heavy set-up, so the scan takes much longer. Off by default.");
+}
+function buildTools() {
+  const box = $("tools"); box.textContent = "";
+  options.tools.forEach((t) => {
+    const chips = [chip("about", "tool", {"data-tool": t})];
+    if (options.slow_tools.includes(t)) chips.push(chip("slow", "tool slow"));
+    box.append(choiceCard({type: "checkbox", name: "tool", value: t, title: t, desc: TOOL_INFO[t] || "", chips}));
+  });
+}
+
+// ---------- route chooser ----------
+function setRoute(v) {
+  const guided = v !== "single";
+  $("panelGuided").hidden = !guided; $("panelSingle").hidden = guided;
+  $("routeGuided").checked = guided; $("routeSingle").checked = !guided;
+  plan();
+}
+function goTo(id) {
+  const t = $(id); if (!t) return;
+  t.scrollIntoView();
+  const h = t.querySelector("h2, h3") || (/^H[23]$/.test(t.tagName) ? t : null);
+  if (h) { h.tabIndex = -1; h.focus({preventScroll: true}); }
+}
+function routeFromHash() {
+  const h = location.hash;
+  if (h === "#advanced" || h === "#single") { setRoute("single"); goTo("run"); }
+  else if (h === "#scan" || h === "#guided") { setRoute("guided"); goTo("run"); }
+}
+
+// ---------- queue ----------
 function drawJobs(jobs) {
+  const key = JSON.stringify([jobs, [...scanLabels].sort()]);
+  if (key === lastJobsKey) return;
+  lastJobsKey = key;
   const body = $("jobs"); body.textContent = "";
-  if (!jobs.length) { body.innerHTML = '<tr><td colspan="9" class="hint">No jobs yet.</td></tr>'; return; }
-  for (const j of jobs.slice().reverse()) {
-    const tr = document.createElement("tr");
-    const cells = [j.id, j.tool, j.target, j.tier, j.label, j.status, j.result || "", (j.started || "").replace("T", " ")];
-    const KIND = {done: "good", failed: "bad", interrupted: "bad", running: "warn", queued: "neutral", cancelled: "neutral"};
-    cells.forEach((c, i) => { const td = document.createElement("td");
-      if (i === 5) { const b = document.createElement("span"); b.className = "badge " + (KIND[j.status] || "neutral"); b.textContent = c; td.append(b); } else td.textContent = c;
-      tr.append(td); });
-    const act = document.createElement("td");
-    const lg = document.createElement("button"); lg.className = "mini"; lg.textContent = "log"; lg.onclick = () => selectLog(j); act.append(lg);
-    if (j.status === "queued" || j.status === "running") { const c = document.createElement("button"); c.className = "mini stop"; c.textContent = "cancel"; c.onclick = () => api(`/api/jobs/${j.id}/cancel`, {}).then(refresh); act.append(c); }
-    tr.append(act); body.append(tr);
+  if (!jobs.length) {
+    const tr = el("tr", null, null, {role: "row"}), td = el("td", "No jobs yet. Add some in step 2.", null, {colspan: "10", role: "cell"});
+    tr.append(td); body.append(tr); return;
   }
+  const cols = ["#", "Tool", "Guardrail", "Tier", "Label", "From", "Status", "Result", "Started"];
+  jobs.slice().reverse().forEach((j) => {
+    const tr = el("tr", null, null, {role: "row"});
+    const cells = [j.id, j.tool, j.target, j.tier, j.label, scanLabels.has(j.label) ? "Guided scan" : "Single tool", null, j.result || "", (j.started || "").replace("T", " ")];
+    cells.forEach((c, i) => {
+      const td = el("td", null, i === 4 || i === 7 ? "wrap" : null, {role: "cell", "data-label": cols[i]});
+      if (i === 6) td.append(el("span", STATUS_TEXT[j.status] || j.status, "badge " + (STATUS_KIND[j.status] || "neutral")));
+      else td.textContent = String(c);
+      tr.append(td);
+    });
+    const act = el("td", null, "actions-cell", {role: "cell"});
+    const lg = el("button", "Log", "btn ghost sm", {type: "button", "aria-label": "Show log of job " + j.id});
+    lg.onclick = () => selectLog(j); act.append(lg);
+    if (j.status === "queued" || j.status === "running") {
+      const c = el("button", "Cancel", "btn danger sm", {type: "button", "aria-label": "Cancel job " + j.id});
+      c.onclick = () => api("/api/jobs/" + j.id + "/cancel", {}).then(refresh); act.append(c);
+    }
+    tr.append(act); body.append(tr);
+  });
 }
-function selectLog(j) { selected = j.id; logOffset = 0; $("log").hidden = false; $("log").textContent = ""; $("logtitle").textContent = `Log of job ${j.id}: ${j.tool} on ${j.target} (${j.tier})`; pollLog(); }
+function selectLog(j) {
+  selected = j.id; logOffset = 0;
+  const pre = $("log"); pre.hidden = false; pre.textContent = "";
+  setText($("logtitle"), "Log of job " + j.id + ": " + j.tool + " on " + j.target + " (" + j.tier + ")");
+  pollLog(); $("logtitle").scrollIntoView({block: "nearest"});
+}
 async function pollLog() {
   if (selected === null) return;
-  const d = await api(`/api/jobs/${selected}/log?offset=${logOffset}`).catch(() => null);
+  const d = await api("/api/jobs/" + selected + "/log?offset=" + logOffset).catch(() => null);
   if (!d || !d.text) return;
   const pre = $("log"), atEnd = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 30;
   pre.textContent += d.text; logOffset = d.next; if (atEnd) pre.scrollTop = pre.scrollHeight;
 }
-$("queue").onclick = async () => {
-  if (target.stub && !confirm("The target is in stub mode, so these results would be fake. Queue anyway?")) return;
-  try {
-    const r = await api("/api/jobs", {tools: checked("tools"), guardrails: checked("guardrails"), tier: $("tier").value, label: $("label").value, docs: $("docs").value});
-    $("message").textContent = `Queued ${r.created.length} job(s) with label ${r.label}.` + (r.skipped.length ? " Skipped: " + r.skipped.join("; ") : "");
-    refresh();
-  } catch (e) { $("message").textContent = "Not queued: " + e.message; }
-};
-function buildCards() {
-  for (const c of options.categories) {
-    const l = document.createElement("label"); l.className = "card" + (c.manual ? " gap" : "");
-    const i = document.createElement("input"); i.type = "checkbox"; i.value = c.id; i.disabled = !!c.manual;
-    i.addEventListener("change", scanEstimate);
-    const b = document.createElement("b"); b.append(i, document.createTextNode(` ${c.id} ${c.name}`));
-    l.append(b);
-    if (c.manual) { const n = document.createElement("div"); n.className = "hint"; n.textContent = "No automated test yet: " + c.manual; l.append(n); }
-    else {
-      c.tools.forEach((t) => { const s = document.createElement("span"); s.className = "chip"; s.textContent = t; l.append(s); });
-      if (c.docs === "poisoned") { const s = document.createElement("span"); s.className = "chip warnchip"; s.textContent = "poisoned docs"; l.append(s); }
-    }
-    $("cats").append(l);
-  }
-}
-function scanTools() {
-  const ids = checked("cats"), slow = $("slow").checked, set = new Set();
-  options.categories.filter((c) => ids.includes(c.id)).forEach((c) => c.tools.forEach((t) => { if (slow || !options.slow_tools.includes(t)) set.add(t); }));
-  return options.tools.filter((t) => set.has(t));
-}
-function scanEstimate() {
-  const tools = scanTools(), tier = $("tier").value, g = checked("guardrails").length;
-  let total = 0, big = false;
-  tools.forEach((t) => { const n = options.hints[t][tier]; if (n == null) big = true; else total += n * g; });
-  $("scanTools").textContent = tools.length ? `Tools: ${tools.join(", ")}. About ${total.toLocaleString()} requests${big ? " plus some with no estimate" : ""}.` : "";
-}
-$("scanGo").onclick = async () => {
-  if (target.stub && !confirm("The target is in stub mode, so these results would be fake. Scan anyway?")) return;
-  try {
-    const r = await api("/api/scan", {categories: checked("cats"), guardrails: checked("guardrails"), tier: $("tier").value, include_slow: $("slow").checked, docs: $("docs").value});
-    $("scanMsg").textContent = `Queued ${r.created.length} job(s) as scan ${r.label} (${r.tools.join(", ")}).` + (r.warnings.length ? " " + r.warnings.join(" ") : "");
-    scanLabel = r.label; scansKey = ""; refresh(); loadScan();
-  } catch (e) { $("scanMsg").textContent = "Not started: " + e.message; }
-};
+
+// ---------- scan results ----------
 async function loadScans() {
   const d = await api("/api/scans").catch(() => null); if (!d) return;
+  scanLabels = new Set(d.scans.map((s) => s.label));
   const key = d.scans.map((s) => s.label).join(",");
   if (key === scansKey) return;
   scansKey = key; const pick = $("scanPick"); pick.textContent = "";
-  d.scans.forEach((s) => { const o = document.createElement("option"); o.value = s.label; o.textContent = `${s.label} (${s.categories.join(", ")})`; pick.append(o); });
-  if (scanLabel && d.scans.some((s) => s.label === scanLabel)) pick.value = scanLabel; else if (d.scans.length) scanLabel = pick.value;
+  if (!d.scans.length) { const o = el("option", "No scans yet", null, {value: ""}); o.disabled = true; pick.append(o); return; }
+  d.scans.forEach((s) => pick.append(el("option", s.label + " (" + s.categories.join(", ") + ")", null, {value: s.label})));
+  if (scanLabel && scanLabels.has(scanLabel)) pick.value = scanLabel; else { scanLabel = pick.value; scanLoaded = false; }
 }
-$("scanPick").onchange = () => { scanLabel = $("scanPick").value; loadScan(); };
-function el(tag, text, cls) { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; }
+function scanGrid(r) {
+  const wrap = el("div", null, "tablewrap gridwrap"), t = el("table"), head = el("tr"), th = el("th", "Category"); head.append(th);
+  r.guardrails.forEach((g) => head.append(el("th", g)));
+  const thead = el("thead"); thead.append(head); t.append(thead);
+  const tb = el("tbody");
+  r.categories.forEach((c) => {
+    const tr = el("tr"); tr.append(el("td", c.id + " " + c.name + (c.docs === "poisoned" ? " (poisoned docs)" : "")));
+    r.guardrails.forEach((g) => {
+      const v = c.cells[g] || {requests: 0, successes: 0};
+      const td = el("td", null, v.requests ? (v.successes ? "hit" : "safe") : "none");
+      const word = !v.requests ? "not run" : (v.successes ? "worked" : "held") + (v.unsure ? ", " + v.unsure + " unsure" : "");
+      td.append(el("span", v.requests ? v.successes + "/" + v.requests : "-", "val"), el("span", word, "word"));
+      tr.append(td);
+    });
+    tb.append(tr);
+  });
+  t.append(tb); wrap.append(t); return wrap;
+}
 async function loadScan() {
   if (!scanLabel) return;
   const d = await api("/api/scans/" + encodeURIComponent(scanLabel)).catch(() => null); if (!d) return;
-  scanMarkdown = d.markdown;
+  scanMarkdown = d.markdown; $("scanCopy").disabled = false;
   const p = d.progress, busy = p.queued + p.running;
-  $("scanProgress").textContent = `${p.done} done, ${p.running} running, ${p.queued} queued` + (p.failed ? `, ${p.failed} failed` : "") + `. Saved to ${d.saved}`;
-  const box = $("scanBox"); box.textContent = ""; box.className = "";
-  const r = d.result, t = el("table"), head = el("tr"); head.append(el("th", "category"));
-  r.guardrails.forEach((g) => head.append(el("th", g))); t.append(head);
-  r.categories.forEach((c) => {
-    const tr = el("tr"); tr.append(el("td", `${c.id} ${c.name}` + (c.docs === "poisoned" ? " (poisoned docs)" : "")));
-    r.guardrails.forEach((g) => { const v = c.cells[g] || {requests: 0, successes: 0};
-      tr.append(el("td", v.requests ? `${v.successes}/${v.requests}` : "-", v.requests ? (v.successes ? "hit" : "safe") : "none")); });
-    t.append(tr);
+  scanBusy = busy > 0;
+  const jobCount = p.queued + p.running + p.done + p.failed + p.cancelled;
+  setText($("scanProgress"), jobCount
+    ? p.done + " done, " + p.running + " running, " + p.queued + " waiting" + (p.failed ? ", " + p.failed + " failed" : "") + ". Saved to " + d.saved
+    : "This scan's jobs are no longer in the Queue (cleared). The grid is read from the log, so it is still correct. Saved to " + d.saved);
+  const drawn = scanLabel + "\n" + d.markdown;
+  scanLoaded = true;
+  if (drawn === scanDrawn) return;
+  scanDrawn = drawn;
+  const box = $("scanBox"), open = new Set([...box.querySelectorAll("details[open]")].map((x) => x.dataset.cat));
+  box.textContent = ""; box.dataset.state = "ready";
+  const r = d.result;
+  box.append(scanGrid(r));
+  const leg = el("div", null, "legend");
+  [["hit", "Attack worked at least once"], ["safe", "Tested and held"], ["none", "No matching requests yet"]].forEach(([k, txt]) => {
+    const s = el("span", null, "sw"); s.append(el("i", null, k), document.createTextNode(txt)); leg.append(s);
   });
-  box.append(t, el("div", "Red = the attack worked at least once, green = tested and held, grey = no matching requests yet. Counts index the log; they are not attack success rates.", "hint"));
+  box.append(leg, el("p", "Counts index the log. They are not attack success rates. \"Unsure\" replies look suspicious (part of the secret, a quoted poisoned note, an empty reply) but the checks cannot settle them: read those by hand.", "help"));
+  const shown = r.categories.map((c) => c.id);
+  if (shown.includes("LLM05") && shown.includes("LLM09")) box.append(el("p", "LLM05 and LLM09 share one test (the poisoned document), so their rows match.", "help"));
+  if (r.categories.some((c) => c.docs === "poisoned")) box.append(el("p", "Poisoned-document rows only count requests that reached the document lookup. A guardrail that stops a request earlier (the blocklist) shows fewer requests.", "help"));
+  box.append(el("h4", "Real example replies (secret masked)", "sub"));
   r.categories.forEach((c) => {
-    const det = el("details"), sum = el("summary", `${c.id} ${c.name}: ${c.verdict}`); det.append(sum);
-    c.evidence.forEach((e) => det.append(el("div", `${e.tool} on ${e.guardrail} (stopped by: ${e.blocked_by})\nasked: ${e.question}\nreply: ${e.reply}`, "ev")));
-    if (!c.evidence.length) det.append(el("div", "No successful attack to show.", "hint"));
+    const det = el("details", null, null, {"data-cat": c.id}); det.open = open.has(c.id);
+    det.append(el("summary", c.id + " " + c.name + ": " + c.verdict));
+    c.evidence.forEach((e) => {
+      const ev = el("div", null, "ev");
+      const line = (label, text) => { const row = el("div"); row.append(el("b", label + " "), document.createTextNode(text)); return row; };
+      ev.append(line("", e.tool + " on " + e.guardrail + " (stopped by: " + e.blocked_by + ")"), line("Asked:", e.question), line("Reply:", e.reply));
+      det.append(ev);
+    });
+    if (!c.evidence.length) det.append(el("p", "No successful attack to show.", "help"));
     box.append(det);
   });
-  if (r.gaps.length) box.append(el("div", "No automated test yet: " + r.gaps.map((g) => g.id).join(", "), "hint"));
-  loadScan.busy = busy > 0;
+  if (r.gaps.length) box.append(el("p", "No automated test yet: " + r.gaps.map((g) => g.id).join(", "), "help"));
 }
-$("scanCopy").onclick = () => navigator.clipboard.writeText(scanMarkdown);
-setInterval(() => { loadScans(); if (loadScan.busy) loadScan(); }, 3000);
-$("clear").onclick = () => api("/api/jobs/clear", {}).then(refresh);
-document.querySelectorAll("button[data-kind]").forEach((b) => b.onclick = async () => {
-  $("report").textContent = "Building…";
-  try { $("report").textContent = (await api("/api/report", {kind: b.dataset.kind, include_stub: $("stub").checked, docs: $("reportDocs").value})).text; }
-  catch (e) { $("report").textContent = "Error: " + e.message; }
-});
-$("copy").onclick = () => navigator.clipboard.writeText($("report").textContent);
+async function copyText(text, statusId) {
+  const s = $(statusId);
+  clearTimeout(copyTimers[statusId]);
+  try { await navigator.clipboard.writeText(text); setText(s, "Copied."); }
+  catch (e) { setText(s, "Could not copy. Select the text and copy it by hand."); }
+  copyTimers[statusId] = setTimeout(() => setText(s, ""), 2500);
+}
+
+// ---------- starting runs ----------
+function messageWith(id, text, links, bad) {
+  const m = $(id); m.textContent = ""; m.className = "status-line" + (bad ? " bad" : "");
+  m.append(el("span", text));
+  (links || []).forEach(([label, to]) => { const b = el("button", label, "btn link", {type: "button"}); b.onclick = () => goTo(to); m.append(b); });
+}
+async function startScan() {
+  const ids = checked("cats"), guards = checked("guardrails"), name = $("scanName").value.trim();
+  if (!ids.length) return messageWith("scanMsg", "Not started: tick at least one test.", [], true);
+  if (!guards.length) return messageWith("scanMsg", "Not started: tick at least one guardrail in step 1.", [], true);
+  if (name && !LABEL_OK.test(name)) return messageWith("scanMsg", "Not started: the name may only use letters, digits, - and _ (40 at most).", [], true);
+  if (target.stub && !confirm("The target is in stub mode, so these results would be fake. Scan anyway?")) return;
+  const body = {categories: ids, guardrails: guards, tier: radioValue("tier", "smoke"), include_slow: $("slow").checked, docs: radioValue("docs", "auto")};
+  if (name) body.label = name;
+  try {
+    const r = await api("/api/scan", body);
+    scanLabel = r.label; scansKey = ""; scanLoaded = false; scanDrawn = "";
+    await refresh(); loadScan();
+    messageWith("scanMsg", "Added " + plural(r.created.length, "job") + " to the Queue for scan " + r.label + " (" + r.tools.join(", ") + "). They run one at a time." + (r.warnings.length ? " " + r.warnings.join(" ") : ""),
+      [["Go to scan results", "scan-results"], ["Go to the Queue", "queue"]], false);
+  } catch (e) { messageWith("scanMsg", "Not started: " + e.message, [], true); }
+}
+async function runTools() {
+  const tools = checked("tools"), guards = checked("guardrails");
+  if (!tools.length) return messageWith("message", "Not started: tick at least one tool.", [], true);
+  if (!guards.length) return messageWith("message", "Not started: tick at least one guardrail in step 1.", [], true);
+  if (target.stub && !confirm("The target is in stub mode, so these results would be fake. Run anyway?")) return;
+  try {
+    const r = await api("/api/jobs", {tools, guardrails: guards, tier: radioValue("tier", "smoke"), label: $("runLabel").value, docs: radioValue("docs", "auto")});
+    await refresh();
+    messageWith("message", "Added " + plural(r.created.length, "job") + " to the Queue with label " + r.label + "." + (r.skipped.length ? " Skipped: " + r.skipped.join("; ") : ""),
+      [["Go to the Queue", "queue"], ["Go to Log reports", "reports"]], false);
+  } catch (e) { messageWith("message", "Not started: " + e.message, [], true); }
+}
+
+// ---------- polling ----------
+async function refresh() {
+  try { target = await api("/api/status"); target.checked = true; } catch (e) { target = {reachable: false, checked: true, url: "", error: String(e), guardrails: []}; }
+  drawStatus(); syncGuardrails();
+  const data = await api("/api/jobs").catch(() => null); if (data) drawJobs(data.jobs);
+  await loadScans();
+  if (scanLabel && !scanLoaded) loadScan();
+}
+
+// ---------- wiring ----------
+function tickAll(containerId, on) { document.querySelectorAll("#" + containerId + " input[type=checkbox]:not(:disabled)").forEach((i) => { i.checked = on; }); plan(); }
+async function init() {
+  try { options = await api("/api/options"); } catch (e) { optionsError = true; drawStatus(); return; }
+  buildGuardrails(); buildTier(); buildDocs(); buildCategories(); buildTools();
+  document.addEventListener("change", plan);
+  document.querySelectorAll('input[name="route"]').forEach((r) => r.addEventListener("change", () => setRoute(radioValue("route", "guided"))));
+  $("toGuided").onclick = () => { setRoute("guided"); $("gh").focus({preventScroll: false}); };
+  document.querySelectorAll("[data-goto]").forEach((b) => { b.onclick = () => goTo(b.dataset.goto); });
+  $("gAll").onclick = () => tickAll("guardrails", true); $("gNone").onclick = () => tickAll("guardrails", false);
+  $("catAll").onclick = () => tickAll("cats", true); $("catNone").onclick = () => tickAll("cats", false);
+  $("scanGo").onclick = startScan; $("queueRuns").onclick = runTools;
+  $("clear").onclick = () => api("/api/jobs/clear", {}).then(() => { lastJobsKey = ""; return refresh(); });
+  $("scanPick").onchange = () => { scanLabel = $("scanPick").value; scanLoaded = false; scanDrawn = ""; loadScan(); };
+  $("scanCopy").onclick = () => copyText(scanMarkdown, "scanCopied");
+  $("copy").onclick = () => copyText($("report").textContent, "copied");
+  document.querySelectorAll("button[data-kind]").forEach((b) => b.onclick = async () => {
+    $("report").textContent = "Building…";
+    try { $("report").textContent = (await api("/api/report", {kind: b.dataset.kind, include_stub: $("stub").checked, docs: radioValue("reportDocs", "clean")})).text; }
+    catch (e) { $("report").textContent = "Error: " + e.message; }
+  });
+  window.addEventListener("hashchange", routeFromHash);
+  setRoute("guided"); plan(); routeFromHash();
+  refresh(); setInterval(refresh, 2000); setInterval(pollLog, 1500);
+  setInterval(() => { loadScans(); if (scanBusy) loadScan(); }, 3000);
+}
 init();
 </script>
 </body>

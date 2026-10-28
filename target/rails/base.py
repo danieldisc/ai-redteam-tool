@@ -10,6 +10,7 @@ class Result(NamedTuple):
     ids: list                 # retrieved document ids the model actually saw
     blocked_by: str           # the layer that stopped the answer, model_refused or none
     dropped_ids: tuple = ()   # retrieved documents removed before the model saw them
+    external: dict | None = None   # an external chatbot's own guardrail verdict, if it gave one (relay only)
 
 
 class Guardrail:

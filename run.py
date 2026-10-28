@@ -6,8 +6,8 @@ Run one attack tool against one target.
     python run.py baseline  --target both      --tier smoke
     python run.py scripted  --target all       --tier standard --docs poisoned
 
-Tools: baseline (built-in prompts), scripted (fixed multi-turn conversations), adaptive (Claude as the
-       attacker, needs an Anthropic key), garak, giskard, inspect, pyrit, promptfoo
+Tools: baseline (built-in prompts), scripted (fixed multi-turn conversations), garak, giskard, inspect, pyrit, promptfoo.
+       (A Claude-as-attacker tool is parked in extras/.)
 Targets: a guardrail id from the server (unguarded, guarded = NeMo, blocklist, doccheck), several
          separated by commas, `both` (unguarded and guarded) or `all`; run one after the other
 Documents: --docs clean (default) or poisoned picks the document set, so there is no need to restart the
@@ -44,7 +44,7 @@ from docs_mode import MODES, join_target, split_target  # noqa: E402
 for _var in ("DO_NOT_TRACK", "GISKARD_TELEMETRY_DISABLED", "PROMPTFOO_DISABLE_TELEMETRY", "PROMPTFOO_DISABLE_UPDATE"):
     os.environ.setdefault(_var, "1")
 
-TOOLS = ["baseline", "scripted", "adaptive", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
+TOOLS = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
 
 
 def pick_targets(choice: str, available: list[str], docs: str = "clean") -> list[str]:
@@ -59,7 +59,7 @@ def pick_targets(choice: str, available: list[str], docs: str = "clean") -> list
     if unknown:
         sys.exit(f"Unknown target {', '.join(unknown)}. The server offers: {', '.join(available)} (also both, all; "
                  f"add _poisoned for the poisoned documents).")
-    return [n if split_target(n)[1] == "poisoned" else join_target(n, docs) for n in names]
+    return [join_target(split_target(n)[0], "poisoned" if split_target(n)[1] == "poisoned" else docs) for n in names]
 
 
 def main():

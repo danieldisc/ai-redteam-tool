@@ -4,14 +4,14 @@ A local web page for running the attack tools and reading the results.
     python ui/app.py                                   # then open http://127.0.0.1:8080
     python ui/app.py --port 8090 --target-url http://127.0.0.1:8000
 
-Start the target server yourself first (python target/server.py). On the page you tick tools and
-guardrails, pick a tier, and queue the runs. Jobs run one at a time, because the target answers one
-request at once. Each job is its own `python run.py <tool> --target <guardrail> ...` process, so
+Start the target server yourself first (python target/server.py). On the page you set the guardrails,
+tier and documents (step 1), then choose how to run (step 2): a guided scan, or single tools. Jobs run
+one at a time, because the target answers one request at once. Each job is its own `python run.py <tool> --target <guardrail> ...` process, so
 PyRIT still uses its own environment, and a job that crashes does not stop the others.
 
-The top of the page is a guided scan: tick OWASP categories (listed in attacks/owasp.json), and the
-page queues the tools that cover them on every guardrail ticked, then shows a category x guardrail
-grid with evidence (report/scan.py). The advanced section below still queues single tools.
+Guided scan: tick OWASP categories (listed in attacks/owasp.json), and the page queues the tools that
+cover them on every guardrail ticked, then shows a category x guardrail grid with evidence
+(report/scan.py). Run single tools queues the tools you pick and has no grid.
 
 The target serves clean and poisoned documents at once (a target id ending _poisoned), so there is no
 restart: "Documents: automatic" runs the poisoning categories on the poisoned set and the rest on the
@@ -45,13 +45,27 @@ sys.path.insert(0, str(ROOT / "report"))
 sys.path.insert(0, str(ROOT / "target"))
 
 import analyse  # noqa: E402
-from docs_mode import MODES, join_target, split_target  # noqa: E402
+from docs_mode import MODES, NO_POISON, join_target, split_target  # noqa: E402
 import owasp  # noqa: E402
 import scan as scanning  # noqa: E402
 
-TOOLS = ["baseline", "scripted", "adaptive", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
+TOOLS = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
 TIERS = ["smoke", "standard", "full"]
 KNOWN_GUARDRAILS = [{"id": "unguarded"}, {"id": "guarded"}]  # for a server that predates /health listing them
+# Plain-English names for the page, so they show even when the target is down. Update when a rail is added.
+GUARDRAIL_INFO = [
+    {"id": "unguarded", "label": "No guardrail",
+     "description": "No protection. The chatbot answers on its own. This is the baseline to compare the others against."},
+    {"id": "guarded", "label": "NeMo Guardrails",
+     "description": "A model-based check on every message, plus a filter on replies. It stops secret leaks well, "
+                    "but it refuses some harmless follow-up questions."},
+    {"id": "blocklist", "label": "Keyword blocklist",
+     "description": "Blocks known attack phrases in the question and the secret in the reply. It is fast, "
+                    "but it misses new wording and encoded text."},
+    {"id": "doccheck", "label": "Document check",
+     "description": "Removes retrieved documents that hide instructions or link to unknown sites, before the model "
+                    "sees them. It only helps against poisoned documents. Otherwise it behaves like no guardrail."},
+]
 NAME = re.compile(r"^[a-z0-9_-]{1,30}$")
 LABEL = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 FINISHED = ("done", "failed", "cancelled", "interrupted")
@@ -60,7 +74,6 @@ FINISHED = ("done", "failed", "cancelled", "interrupted")
 REQUEST_HINTS = {
     "baseline": {"smoke": 27, "standard": 81, "full": 135},
     "scripted": {"smoke": 10, "standard": 72, "full": 120},
-    "adaptive": {"smoke": 6, "standard": 50, "full": 160},  # also one Claude API call per request: costs money
     "garak": {"smoke": 36, "standard": 1740, "full": None},
     "giskard": {"smoke": 7, "standard": 99, "full": 165},
     "inspect": {"smoke": 8, "standard": 117, "full": 195},
@@ -270,7 +283,7 @@ class App:
         cats = [{"id": c["id"], "name": c["name"], "tools": c.get("tools", []), "manual": c.get("manual"),
                  "docs": c.get("docs", "clean")} for c in self.categories]
         return {"tools": TOOLS, "tiers": TIERS, "hints": REQUEST_HINTS, "categories": cats,
-                "slow_tools": scanning.SLOW_TOOLS}
+                "slow_tools": scanning.SLOW_TOOLS, "guardrails": GUARDRAIL_INFO}
 
     # ---- jobs ----------------------------------------------------------------------------
     def create_jobs(self, body: dict) -> tuple[dict, int]:
@@ -347,7 +360,11 @@ class App:
             if mode not in plan:
                 continue
             tools = scanning.pick_tools(self.categories, plan[mode], include_slow)
-            result, code = self.create_jobs({"tools": tools, "guardrails": [join_target(g, mode) for g in guardrails],
+            # an external chatbot (relay) has its own documents: it is not run on the poisoned set
+            targets = [join_target(g, mode) for g in guardrails if not (mode == "poisoned" and g in NO_POISON)]
+            if not targets:
+                continue
+            result, code = self.create_jobs({"tools": tools, "guardrails": targets,
                                              "tier": body.get("tier"), "label": label})
             if code != 200:
                 if created:
@@ -357,7 +374,8 @@ class App:
             skipped += result["skipped"]
             tools_used += [t for t in tools if t not in tools_used]
         if not created:
-            return {"error": "nothing was queued: " + "; ".join(skipped)}, 409
+            return {"error": "nothing was queued: " + ("; ".join(skipped) or "the external chatbot has no poisoned-document set, "
+                                                       "so there is nothing to run for these categories")}, 409
         warnings = []
         if choice == "clean" and {"LLM05", "LLM09"} & set(testable):
             warnings.append("LLM05/LLM09 test the poisoned document, so on clean documents they show nothing. "

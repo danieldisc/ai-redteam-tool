@@ -58,6 +58,7 @@ check("scripted: the poisoned-document conversation only runs on the poisoned se
 try:
     import server
     from fastapi import HTTPException
+    from rails.base import Result
 except ImportError as exc:
     print(f"SKIP server routing ({exc})")
 else:
@@ -71,7 +72,7 @@ else:
         description = ""
 
         async def answer(self, chatbot, history, question):
-            return (f"answered from the {chatbot.docs} documents", ["doc5_poisoned"] if chatbot.docs == "poisoned" else ["doc1"], "none", ())
+            return Result(f"answered from the {chatbot.docs} documents", ["doc5_poisoned"] if chatbot.docs == "poisoned" else ["doc1"], "none", ())
 
     class Req:
         def __init__(self, body):
@@ -94,8 +95,10 @@ else:
         check("server: a _poisoned model name answers from the poisoned documents", "poisoned" in poisoned)
         check("server: the log records the document set of each request", [r["docs"] for r in rows] == ["clean", "poisoned"])
         check("server: the log keeps the full model name", rows[1]["model"] == "askdbc-unguarded_poisoned")
-        check("server: both sets are offered for every guardrail", "askdbc-doccheck_poisoned" in server.MODELS and "askdbc-doccheck" in server.MODELS
+        offered = server.served_models()
+        check("server: both sets are offered for every built-in guardrail", "askdbc-doccheck_poisoned" in server.MODELS and "askdbc-doccheck" in server.MODELS
               and len(server.MODELS) == 2 * len(server.rails.IDS))
+        check("server: with only the registered option, only its two names are offered", offered == ["askdbc-unguarded", "askdbc-unguarded_poisoned"])
         try:
             ask("askdbc-unguarded_other")
             check("server: an unknown model is refused", False)

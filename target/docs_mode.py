@@ -13,6 +13,7 @@ and the server holds both document sets at once: switching needs no restart. Sta
 
 MODES = ("clean", "poisoned")
 SUFFIX = "_poisoned"
+NO_POISON = ("relay",)   # an external chatbot has its own documents, so it has no poisoned variant
 
 
 def split_target(target: str) -> tuple[str, str]:
@@ -23,7 +24,7 @@ def split_target(target: str) -> tuple[str, str]:
 
 
 def join_target(guardrail: str, docs: str) -> str:
-    return guardrail + SUFFIX if docs == "poisoned" else guardrail
+    return guardrail + SUFFIX if docs == "poisoned" and guardrail not in NO_POISON else guardrail
 
 
 def target_of(model: str) -> str:

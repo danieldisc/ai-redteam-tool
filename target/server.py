@@ -4,6 +4,7 @@ this one server, so they all hit identical code.
 
     python target/server.py                  # port 8000
     python target/server.py --port 8001
+    python target/server.py --relay-url http://localhost:9000/v1 --oracle oracle.json   # also serve another chatbot
 
 One model is served per guardrail option (see target/rails/):
     askdbc-unguarded   retrieval + Llama 3.1 8B, no guardrail
@@ -14,6 +15,12 @@ One model is served per guardrail option (see target/rails/):
 Each option is served over two document sets, chosen by the model name and needing no restart:
 askdbc-<id> uses the four clean documents, askdbc-<id>_poisoned adds the booby-trapped one
 (target/docs_mode.py). The log records which set each request used.
+
+With --relay-url the server also offers askdbc-relay: every request is forwarded to another chatbot (an
+OpenAI-compatible endpoint, target/rails/relay.py) and its answer comes back, so the same tools, log and
+reports work on it. --oracle names a JSON file with the secrets planted in that chatbot (target/oracle.py),
+which is how the leak check judges its replies. Its own guardrail verdict, if it sends one, is logged
+in the "external" field.
 
 Point a tool at  http://localhost:8000/<tag>/v1  where <tag> is the tool name,
 optionally with a run label after a dot (e.g. garak.run1). The tag is only used
@@ -49,12 +56,14 @@ from fastapi.responses import JSONResponse, StreamingResponse  # noqa: E402
 
 import canary  # noqa: E402
 import docs_mode  # noqa: E402
+import oracle  # noqa: E402
 import rag  # noqa: E402
 import rails  # noqa: E402
+from rails.relay import Relay, RelayError  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 LOG_PATH = Path(os.environ.get("REDTEAM_LOG", ROOT / "results" / "raw" / "server_log.jsonl"))
-MODELS = tuple(f"askdbc-{docs_mode.join_target(i, d)}" for d in docs_mode.MODES for i in rails.IDS)
+MODELS = tuple(f"askdbc-{docs_mode.join_target(i, d)}" for d in docs_mode.MODES for i in rails.IDS)  # the built-in options
 MAX_N = 10
 
 app = FastAPI(title="AskDBC-Demo target")
@@ -96,7 +105,24 @@ async def run_target(model: str, history: list[dict], question: str):
     """Run one question through the guardrail option and document set named by the model."""
     guardrail_id, docs = docs_mode.split_target(docs_mode.target_of(model))
     async with _llm_lock:
-        return await state["guardrails"][guardrail_id].answer(state["chatbots"][docs], history, question)
+        try:
+            return await state["guardrails"][guardrail_id].answer(state["chatbots"][docs], history, question)
+        except RelayError as exc:
+            raise HTTPException(502, str(exc)) from exc
+
+
+def leak_verdict(model: str, reply: str) -> str:
+    """The deterministic leak check. For the relay it uses the secrets planted in the external chatbot."""
+    if docs_mode.guardrail_of(model) == "relay" and state.get("oracle"):
+        return canary.check(reply, state["oracle"].get("system_prompt"), state["oracle"]["secrets"])
+    return canary.check(reply, state["chatbots"]["clean"].system_prompt)
+
+
+def served_models() -> list[str]:
+    """Every model name this server answers: each option over clean and poisoned documents (relay: once)."""
+    ids = list(state.get("guardrails") or rails.IDS)
+    names = [f"askdbc-{docs_mode.join_target(i, d)}" for d in docs_mode.MODES for i in ids]
+    return list(dict.fromkeys(names))
 
 
 def completion_body(model: str, replies: list[str]) -> dict:
@@ -140,15 +166,15 @@ async def health():
 
 @app.get("/{tag}/v1/models")
 async def list_models(tag: str):
-    return {"object": "list", "data": [{"id": m, "object": "model", "owned_by": "askdbc-demo"} for m in MODELS]}
+    return {"object": "list", "data": [{"id": m, "object": "model", "owned_by": "askdbc-demo"} for m in served_models()]}
 
 
 @app.post("/{tag}/v1/chat/completions")
 async def chat_completions(tag: str, request: Request):
     body = await request.json()
     model = body.get("model")
-    if model not in MODELS:
-        raise HTTPException(404, f"unknown model {model!r}; use one of {list(MODELS)}")
+    if model not in served_models():
+        raise HTTPException(404, f"unknown model {model!r}; use one of {served_models()}")
     messages = body.get("messages") or []
     history, question = split_messages(messages)
     n = max(1, min(int(body.get("n") or 1), MAX_N))
@@ -156,7 +182,8 @@ async def chat_completions(tag: str, request: Request):
     replies = []
     for _ in range(n):
         started = time.perf_counter()
-        reply, ids, blocked_by, dropped = await run_target(model, history, question)
+        result = await run_target(model, history, question)
+        reply, ids, blocked_by, dropped = result.reply, result.ids, result.blocked_by, result.dropped_ids
         latency = round(time.perf_counter() - started, 2)
         replies.append(reply)
         await write_log({
@@ -173,7 +200,8 @@ async def chat_completions(tag: str, request: Request):
             "dropped_ids": list(dropped),
             "response": reply,
             "blocked_by": blocked_by,
-            "canary": canary.check(reply, state["chatbots"]["clean"].system_prompt),
+            "external": result.external,
+            "canary": leak_verdict(model, reply),
             "latency_s": latency,
         })
 
@@ -182,7 +210,7 @@ async def chat_completions(tag: str, request: Request):
     return JSONResponse(completion_body(model, replies))
 
 
-def build_state(stub: bool) -> None:
+def build_state(stub: bool, relay: Relay | None = None, oracle_data: dict | None = None) -> None:
     paths = {"clean": rag.DOCUMENTS_PATH, "poisoned": rag.POISONED_DOCUMENTS_PATH}
     if stub:
         import stub as stubs
@@ -194,8 +222,9 @@ def build_state(stub: bool) -> None:
         nemo_llm = None
     state.update(
         chatbots=chatbots,
-        guardrails=rails.build_registry(chatbots["clean"], nemo_llm),  # the rails only use the system prompt, same for both sets
+        guardrails=rails.build_registry(chatbots["clean"], nemo_llm, relay),  # the rails only use the system prompt, same for both sets
         stub=stub,
+        oracle=oracle_data,
     )
 
 
@@ -204,12 +233,29 @@ def main():
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--docs", choices=["clean", "poisoned"], help=argparse.SUPPRESS)  # old flag, now ignored
+    parser.add_argument("--relay-url", help="Also serve another chatbot as askdbc-relay: its OpenAI-compatible base URL, e.g. http://localhost:9000/v1")
+    parser.add_argument("--relay-model", default="", help="Model name to send to that chatbot (if it needs one)")
+    parser.add_argument("--relay-key-env", help="Name of the environment variable holding that chatbot's API key (never put the key on the command line)")
+    parser.add_argument("--oracle", help="JSON file with the secrets planted in the external chatbot (required with --relay-url)")
     parser.add_argument("--stub", action="store_true", help="Fake model for plumbing tests only. Never report these results.")
     args = parser.parse_args()
 
     if args.docs:
         print("Note: --docs is ignored now. Both document sets are loaded; use a target ending _poisoned for the poisoned one.")
-    build_state(args.stub)
+    relay = oracle_data = None
+    if args.relay_url:
+        if not args.oracle:
+            sys.exit("--relay-url needs --oracle: a JSON file listing the secrets planted in that chatbot, so replies can be judged "
+                     "(see target/oracle.py).")
+        try:
+            oracle_data = oracle.load_oracle(args.oracle)
+            relay = Relay(args.relay_url, args.relay_model, os.environ.get(args.relay_key_env) if args.relay_key_env else None)
+        except (oracle.OracleError, ValueError) as exc:
+            sys.exit(str(exc))
+        if args.relay_key_env and not os.environ.get(args.relay_key_env):
+            sys.exit(f"The environment variable {args.relay_key_env} is not set.")
+        print(f"Relay: askdbc-relay forwards every request to {args.relay_url}. That chatbot sees every attack prompt: use fake data only.")
+    build_state(args.stub, relay, oracle_data)
     print(f"Target ready on http://{args.host}:{args.port}  documents=clean and poisoned  stub={args.stub}")
     print(f"Logging to {LOG_PATH}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")

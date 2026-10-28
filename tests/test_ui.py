@@ -13,6 +13,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -149,6 +150,40 @@ def main() -> int:
         with urllib.request.urlopen(url + "/", timeout=5) as r:
             page = r.read().decode()
         results.append(check("the page is served", "Red team bench" in page))
+
+        # ---- guardrail descriptions, page copy and page hygiene (additive checks) ---------------
+        offline = ui.App("http://127.0.0.1:9", 0, state_dir=tmp / "offline", results_raw=raw, build_command=quick)
+        opts = offline.options()
+        results.append(check("options list the four guardrails with a label and description, even with the target down",
+                             [g["id"] for g in opts["guardrails"]] == ["unguarded", "guarded", "blocklist", "doccheck"]
+                             and all(g["label"] and g["description"] for g in opts["guardrails"])))
+        results.append(check("options keep the older keys",
+                             all(k in opts for k in ("tools", "tiers", "hints", "categories", "slow_tools"))))
+        code, http_opts = call(url, "/api/options")
+        results.append(check("the same guardrails come over HTTP", code == 200 and [g["id"] for g in http_opts["guardrails"]]
+                             == ["unguarded", "guarded", "blocklist", "doccheck"]))
+        results.append(check("the page names both routes and both buttons",
+                             all(t in page for t in ("Guided scan", "Run single tools", "Start guided scan", "Run selected tools"))))
+        results.append(check("the page never builds markup from strings",
+                             not any(t in page for t in ("innerHTML", "insertAdjacentHTML", "outerHTML", "document.write"))))
+
+        class Scan(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.ids, self.external = [], []
+
+            def handle_starttag(self, tag, attrs):
+                for name, value in attrs:
+                    if name == "id":
+                        self.ids.append(value)
+                    if name in ("src", "href") and (value or "").startswith(("http://", "https://")):
+                        self.external.append(value)
+
+        parsed = Scan()
+        parsed.feed(page)
+        dupes = sorted({i for i in parsed.ids if parsed.ids.count(i) > 1})
+        results.append(check(f"no id appears twice in the page {dupes}", not dupes))
+        results.append(check("the page makes no external requests", not parsed.external))
         server.shutdown()
         q2.shutdown()
     fake.shutdown()

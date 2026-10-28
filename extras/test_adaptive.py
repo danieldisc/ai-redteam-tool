@@ -19,6 +19,7 @@ from types import SimpleNamespace as NS
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import adaptive_run as ar  # noqa: E402
