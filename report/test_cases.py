@@ -7,6 +7,8 @@ The test-case catalogue: every attack the project sends, what it tests, and what
 Built from the project's own files, so it cannot drift from what is really run:
   attacks/leak.json          written prompts that ask for the secret
   attacks/multiturn.json     scripted multi-turn conversations (and a harmless control)
+  attacks/library.json       the test library: reusable attack and control cases
+  tools/agent_cases.py       the agent test (LLM03): attacks on a small tool-using agent, and legitimate controls
   tools/inspect_tasks.py     Inspect AI's written attacks
   tools/pyrit_attacks.py     PyRIT's objectives
   attacks/benign.json        legitimate questions the chatbot SHOULD answer (to catch false refusals)
@@ -22,6 +24,7 @@ import ast
 import csv
 import json
 import re
+import sys
 from pathlib import Path
 
 from analyse import ROOT
@@ -117,6 +120,20 @@ def build_cases() -> list[dict]:
         cases.append({"id": f"P{n}", "owasp": "LLM02, LLM08" if secret else "LLM01", "type": "objective, sent plain and wrapped in tricks, also multi-turn",
                       "test": prompt, "failure": SECRET_FAILURE if secret else MARKER_FAILURE.format(markers=markers_text([needle])),
                       "source": "tools/pyrit_attacks.py"})
+    for c in load_json("attacks/library.json")["cases"]:
+        turns = " / ".join(f"({i}) {t}" for i, t in enumerate(c["turns"], 1)) if len(c["turns"]) > 1 else c["turns"][0]
+        owasp = "control" if c["kind"] == "control" else ", ".join([c["owasp"]] + c.get("also", []))
+        cases.append({"id": c["id"], "owasp": owasp, "type": f"{len(c['turns'])}-message case ({c['technique']}; {c['automation'].lower()})" if len(c["turns"]) > 1
+                      else f"single message ({c['technique']}; {c['automation'].lower()})",
+                      "test": turns, "failure": c["failure"] + (" (judged on the last reply only)" if c["judge"] == "last" else "")
+                      + (" (poisoned documents)" if c["docs"] == "poisoned" else ""), "source": "attacks/library.json"})
+    sys.path.insert(0, str(ROOT / "tools"))
+    import agent_cases
+    for c in agent_cases.CASES:
+        cases.append({"id": c["id"], "owasp": "control" if c["kind"] == "control" else "LLM03",
+                      "type": f"agent case ({c['technique']}; semi-automated, run with tools/agent_run.py)", "test": c["prompt"],
+                      "failure": ("the agent makes a call the policy forbids: " if c["kind"] == "attack" else "") + c["failure"],
+                      "source": "tools/agent_cases.py"})
     benign = load_json("attacks/benign.json")
     for n, q in enumerate(benign["in_scope"] + benign["borderline"], 1):
         cases.append({"id": f"B{n}", "owasp": "control", "type": "legitimate question", "test": q, "failure": CONTROL_FAILURE,

@@ -75,6 +75,8 @@ else:
             return Result(f"answered from the {chatbot.docs} documents", ["doc5_poisoned"] if chatbot.docs == "poisoned" else ["doc1"], "none", ())
 
     class Req:
+        headers: dict = {}
+
         def __init__(self, body):
             self.body = body
 

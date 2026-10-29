@@ -222,6 +222,8 @@ async def chat_completions(tag: str, request: Request):
     messages = body.get("messages") or []
     history, question = split_messages(messages)
     n = max(1, min(int(body.get("n") or 1), MAX_N))
+    case = (request.headers.get("x-redteam-case") or "")[:40] or None     # set by the test library, so the log says which test a request was
+    owasp_ids = [x for x in (request.headers.get("x-redteam-owasp") or "").split(",") if re.fullmatch(r"LLM\d{2}", x)]
 
     replies = []
     for _ in range(n):
@@ -245,6 +247,8 @@ async def chat_completions(tag: str, request: Request):
             "response": reply,
             "blocked_by": blocked_by,
             "external": result.external,
+            "case": case,
+            "owasp": owasp_ids,
             "canary": leak_verdict(model, reply),
             "latency_s": latency,
         })

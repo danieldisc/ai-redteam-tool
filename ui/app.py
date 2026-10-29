@@ -52,7 +52,7 @@ import owasp  # noqa: E402
 import pentest_report  # noqa: E402
 import scan as scanning  # noqa: E402
 
-TOOLS = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo", "adaptive"]
+TOOLS = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo", "library", "adaptive"]
 PAID_TOOLS = ["adaptive"]      # bill an external account: the page asks for confirmation and a key first
 TIERS = ["smoke", "standard", "full"]
 KNOWN_GUARDRAILS = [{"id": "unguarded"}, {"id": "guarded"}]  # for a server that predates /health listing them
@@ -83,6 +83,7 @@ REQUEST_HINTS = {
     "inspect": {"smoke": 8, "standard": 117, "full": 195},
     "pyrit": {"smoke": 8, "standard": 74, "full": None},
     "promptfoo": {"smoke": 4, "standard": 340, "full": None},
+    "library": {"smoke": 6, "standard": 210, "full": 525},
     "adaptive": {"smoke": 6, "standard": 50, "full": 160},   # at most; every request is billed
 }
 

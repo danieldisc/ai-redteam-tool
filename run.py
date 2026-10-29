@@ -6,7 +6,7 @@ Run one attack tool against one target.
     python run.py baseline  --target both      --tier smoke
     python run.py scripted  --target all       --tier standard --docs poisoned
 
-Tools: baseline (built-in prompts), scripted (fixed multi-turn conversations), garak, giskard, inspect, pyrit, promptfoo, adaptive (Claude as the attacker: paid, needs ANTHROPIC_API_KEY).
+Tools: baseline (built-in prompts), scripted (fixed multi-turn conversations), library (the test library: about 100 reusable cases), garak, giskard, inspect, pyrit, promptfoo, adaptive (Claude as the attacker: paid, needs ANTHROPIC_API_KEY).
        (A Claude-as-attacker tool is parked in extras/.)
 Targets: a guardrail id from the server (unguarded, guarded = NeMo, blocklist, doccheck), several
          separated by commas, `both` (unguarded and guarded) or `all`; run one after the other
@@ -44,7 +44,7 @@ from docs_mode import MODES, join_target, split_target  # noqa: E402
 for _var in ("DO_NOT_TRACK", "GISKARD_TELEMETRY_DISABLED", "PROMPTFOO_DISABLE_TELEMETRY", "PROMPTFOO_DISABLE_UPDATE"):
     os.environ.setdefault(_var, "1")
 
-TOOLS = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo", "adaptive"]
+TOOLS = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo", "library", "adaptive"]
 
 
 def pick_targets(choice: str, available: list[str], docs: str = "clean") -> list[str]:

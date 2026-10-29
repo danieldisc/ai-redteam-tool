@@ -20,7 +20,7 @@ from pathlib import Path
 
 from analyse import LOG_PATH, MODES, docs_of, guardrail_of, load_log, load_tool_summaries, pct, target_of
 
-TOOL_ORDER = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo", "adaptive"]
+TOOL_ORDER = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo", "library", "adaptive"]
 GUARDRAIL_ORDER = ["unguarded", "guarded", "blocklist", "doccheck"]
 TIER_RANK = {"smoke": 0, "standard": 1, "full": 2}
 

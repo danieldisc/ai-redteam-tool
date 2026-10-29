@@ -46,6 +46,8 @@ def matches(cat: dict, row: dict) -> bool:
     seen = (row.get("retrieved_ids") or []) + (row.get("dropped_ids") or [])   # dropped ones count: the defence faced them
     if cat.get("poisoned") and any("poison" in d for d in seen):
         return True
+    if not cat.get("poisoned") and cat["id"] in (row.get("owasp") or []):      # a test-library request names its own risk
+        return True
     return bool(cat["_re"] and cat["_re"].search(row.get("question") or ""))
 
 

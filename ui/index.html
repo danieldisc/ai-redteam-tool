@@ -475,9 +475,10 @@ const TOOL_INFO = {
   inspect: "Inspect AI, an open-source evaluation framework. Runs written tasks such as prompt injection, role-play attacks and secret extraction.",
   pyrit: "PyRIT, an open-source attack toolkit. Disguises requests, for example by encoding them, and runs multi-message attacks. Uses its own Python environment.",
   adaptive: "Claude as the attacker. It reads each reply and writes the next message, aiming at the secret, the system prompt or a marker word. Paid: it bills your Anthropic account and needs ANTHROPIC_API_KEY. Fake data only.",
+  library: "The project's test library: about 100 reusable attack cases (injection, personas, encodings, leaks, poisoned documents, long output, unsafe output) plus harmless control questions.",
   promptfoo: "Promptfoo, an open-source test runner. Generates attack test cases for many weaknesses, then grades the replies using the local model.",
 };
-const TOOL_NAMES = {garak: "Garak", giskard: "Giskard", pyrit: "PyRIT", promptfoo: "Promptfoo", adaptive: "Claude attacker", inspect: "Inspect AI"};
+const TOOL_NAMES = {garak: "Garak", giskard: "Giskard", pyrit: "PyRIT", promptfoo: "Promptfoo", library: "Test library", adaptive: "Claude attacker", inspect: "Inspect AI"};
 const STATUS_TEXT = {queued: "Waiting", running: "Running", done: "Done", failed: "Failed", cancelled: "Cancelled", interrupted: "Interrupted"};
 const STATUS_KIND = {queued: "neutral", running: "warn", done: "good", failed: "bad", cancelled: "neutral", interrupted: "bad"};
 const LABEL_OK = /^[A-Za-z0-9_-]{1,40}$/;

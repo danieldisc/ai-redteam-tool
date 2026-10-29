@@ -201,6 +201,8 @@ else:
         docs, system_prompt = "clean", "You are a bot."
 
     class Req:
+        headers: dict = {}
+
         def __init__(self, body):
             self.body = body
 
