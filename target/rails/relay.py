@@ -11,7 +11,7 @@ it can be compared with the oracle (report/external.py). It can arrive either wa
     JSON body    {"guardrail": {"verdict": "blocked" | "passed", "layer": "input rail", "reason": "..."}}
     HTTP headers X-Guardrail-Verdict, X-Guardrail-Layer, X-Guardrail-Reason
 
-The URL is fixed when the server starts, so a request cannot make this server call anywhere else. The
+The URL is set at start-up or by the web page on this computer (PUT /admin/relay), never by an attack request. The
 chatbot there sees every attack prompt: use fake data and check your organisation's rules first.
 """
 

@@ -98,6 +98,7 @@
   .chip.adv { background: var(--neutral-soft); color: var(--ink-2); }
   .chip.tool { background: var(--accent-soft); color: var(--accent); }
   .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chiplabel { font-size: 12px; font-weight: 700; color: var(--muted); align-self: center; }
   .chip.slow { border: 1px dashed var(--accent); }
   .tag { font-family: var(--mono); font-size: 12px; background: var(--neutral-soft); color: var(--ink-2); border-radius: 8px; padding: 0 6px; }
   .routes { margin-top: 12px; }
@@ -121,6 +122,9 @@
 
   input[type=text], select { min-height: 40px; padding: 8px 12px; font: inherit; font-size: 15px; color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; max-width: 100%; }
   input[type=text] { width: min(100%, 320px); }
+  input.wide, textarea { width: min(100%, 520px); }
+  textarea { min-height: 72px; padding: 8px 12px; font: inherit; font-size: 15px; color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; }
+  #cbConnected { margin-top: 12px; }
 
   .callout { padding: 12px 16px; border-radius: 8px; font-size: 14px; border-left: 4px solid var(--accent); background: var(--accent-soft); display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
   .callout.warn { background: var(--warn-soft); border-left-color: var(--warn); color: var(--warn); }
@@ -152,6 +156,15 @@
   td.hit { background: var(--bad-soft); color: var(--bad); }
   td.safe { background: var(--good-soft); color: var(--good); }
   td.none { color: var(--muted); }
+  td.mcell { min-width: 150px; }
+  td.mcell .line { display: block; margin-bottom: 8px; }
+  td.mcell .k { display: block; font-size: 12px; font-weight: 400; }
+  td.mcell .n { font-size: 15px; font-weight: 700; }
+  td.mcell .n small { font-size: 12px; font-weight: 400; margin-left: 4px; }
+  td.mcell .short { display: inline-block; font-size: 12px; font-weight: 700; padding: 0 8px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); }
+  td.rowhead { font-weight: 700; white-space: nowrap; }
+  #matrixBox { margin-top: 16px; }
+  #matrixBox .help { margin-bottom: 8px; }
   td .val { display: block; font-size: 15px; font-weight: 700; }
   td .word { display: block; font-size: 12px; }
   .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 8px; }
@@ -201,9 +214,9 @@
   <div class="top-inner">
     <div>
       <h1>Red team bench</h1>
-      <p class="sub">Run five open-source attack tools against one deliberately weak test chatbot, then read what got through. Work through steps 1 to 3.</p>
+      <p class="sub">Test a chatbot against attacks using five open-source security tools, then review which attacks succeeded. Complete steps 1 to 3 in order.</p>
     </div>
-    <span id="banner" class="banner" role="status">Checking the target…</span>
+    <span id="banner" class="banner" role="status">Checking the test chatbot…</span>
   </div>
 </header>
 
@@ -211,12 +224,12 @@
   <aside>
     <nav aria-label="Sections">
       <p class="nav-title">On this page</p>
-      <a href="#settings">1. Settings<small>shared by both routes</small></a>
-      <a href="#run">2. Run<small>guided scan (recommended) or single tools</small></a>
-      <a href="#results">3. Results<small>scan grid, queue, reports</small></a>
-      <a class="sub" href="#scan-results">Scan results<small>grid and evidence</small></a>
-      <a class="sub" href="#queue">Queue<small>every job and its log</small></a>
-      <a class="sub" href="#reports">Log reports<small>matrix and summary</small></a>
+      <a href="#settings">1. Settings<small>applies to every run</small></a>
+      <a href="#run">2. Run<small>guided scan or single tools</small></a>
+      <a href="#results">3. Results<small>results, queue, reports</small></a>
+      <a class="sub" href="#scan-results">Scan results<small>results and evidence</small></a>
+      <a class="sub" href="#queue">Queue<small>every job and its output</small></a>
+      <a class="sub" href="#reports">Log reports<small>comparison and summary</small></a>
     </nav>
   </aside>
 
@@ -224,45 +237,68 @@
     <div id="alert" class="callout" role="status" hidden><span class="grow"><strong id="alertLead"></strong><span id="alertBody"></span></span></div>
 
     <section id="settings" class="block" aria-labelledby="settings-h">
-      <div class="step"><span class="num" aria-hidden="true">1</span><h2 id="settings-h">Settings for every run</h2>
-        <p>Set these once. Guided scan and Run single tools both use them, and both send their jobs to the same Queue.</p></div>
+      <div class="step"><span class="num" aria-hidden="true">1</span><h2 id="settings-h">Settings</h2>
+        <p>Choose these settings once. They apply to both ways of running and to every job in the Queue.</p></div>
       <div class="card">
+        <fieldset class="field" id="chatbotField">
+          <legend>Chatbot to test</legend>
+          <p class="help">Test the built-in test chatbot, or another chatbot reached by its address. The other chatbot must accept OpenAI-style chat requests.</p>
+          <div class="choices cols-2">
+            <label class="choice compact"><input type="radio" name="chatbot" value="local" checked><span class="choice-body"><span class="choice-head"><span class="choice-title">Built-in test chatbot</span></span></span></label>
+            <label class="choice compact"><input type="radio" name="chatbot" value="other" id="cbOther"><span class="choice-body"><span class="choice-head"><span class="choice-title">Another chatbot</span></span></span></label>
+          </div>
+          <div id="cbForm" hidden>
+            <p class="help">That chatbot receives every attack prompt. Use fake data only, and check your organisation's rules first. Enter the name of the environment variable that holds its key, never the key itself.</p>
+            <div class="fgroup"><label class="flabel" for="cbUrl">Address</label><input type="text" class="wide" id="cbUrl" placeholder="for example http://192.168.1.20:9000/v1" autocomplete="off"></div>
+            <div class="fgroup"><label class="flabel" for="cbModel">Model name (optional)</label><input type="text" id="cbModel" autocomplete="off"></div>
+            <div class="fgroup"><label class="flabel" for="cbKeyEnv">Key variable name (optional)</label><input type="text" id="cbKeyEnv" placeholder="for example ROBIN_API_KEY" autocomplete="off">
+              <p class="help">The variable must be set in the terminal where python target/server.py runs.</p></div>
+            <div class="fgroup"><label class="flabel" for="cbSecrets">Planted fake secret</label><textarea id="cbSecrets" rows="2" placeholder="for example ZEBRA-9921 (one per line)"></textarea>
+              <p class="help">The fake secret placed in that chatbot. It is how a leak is detected, whatever any tool says.</p></div>
+            <div class="fgroup"><label class="flabel" for="cbPrompt">System prompt (optional)</label><textarea id="cbPrompt" rows="3"></textarea>
+              <p class="help">If known, so that a long verbatim repeat of it counts as a leak.</p></div>
+            <div class="actions"><button type="button" class="btn secondary" id="cbConnect">Connect</button></div>
+          </div>
+          <div id="cbConnected" class="callout" hidden><span class="grow"><strong>Connected.</strong> <span id="cbConnectedText"></span> Tick the guardrail named "External chatbot (relay)" below. It is tested on clean documents only.</span>
+            <button type="button" class="btn ghost sm" id="cbDisconnect">Disconnect</button></div>
+          <div class="status-line" id="cbMsg" role="status" aria-live="polite"></div>
+        </fieldset>
         <fieldset class="field" id="guardrails">
-          <legend>Guardrails: which protections to test</legend>
+          <legend>Guardrails: the protections to test</legend>
           <div class="field-top">
-            <p class="help">A guardrail is a safety layer around the chatbot. Tick one or more. Each run happens once for every guardrail you tick, so you can compare them. Tick all of them if you are not sure.</p>
-            <div class="btnrow"><button type="button" class="btn ghost sm" id="gAll">Tick all</button><button type="button" class="btn ghost sm" id="gNone">Clear</button></div>
+            <p class="help">A guardrail is a safety layer around the chatbot. Select one or more. Each test is run once for every guardrail selected, which allows them to be compared. If unsure, select all.</p>
+            <div class="btnrow"><button type="button" class="btn ghost sm" id="gAll">Select all</button><button type="button" class="btn ghost sm" id="gNone">Clear</button></div>
           </div>
           <div class="choices cols-2" id="guardrailCards"></div>
-          <p class="help">The grey code on each card is the name used in the Queue and in the results grid.</p>
-          <p class="help" id="guardrailNote" hidden>The target is not reachable, so runs will be refused until you start it.</p>
+          <p class="help">The grey code on each card is the name used in the Queue and in the results.</p>
+          <p class="help" id="guardrailNote" hidden>The test chatbot cannot be reached. Runs will be refused until it is started.</p>
         </fieldset>
         <fieldset class="field" id="tier">
-          <legend>Tier: how much to run</legend>
-          <p class="help">Start with Smoke to check that everything is connected. Use Standard for results you want to report.</p>
+          <legend>Test size: how much to run</legend>
+          <p class="help">Use Smoke first to confirm that the connection works. Use Standard for results intended for reporting.</p>
           <div class="choices cols-3" id="tierCards"></div>
         </fieldset>
         <fieldset class="field" id="docs">
-          <legend>Documents: what the chatbot reads</legend>
-          <p class="help">The chatbot looks up documents before it answers. A poisoned document hides instructions or a link to an unknown site. You can change this at any time. Nothing needs restarting.</p>
+          <legend>Documents: what the chatbot reads from</legend>
+          <p class="help">The chatbot looks up documents before it answers. A poisoned document contains hidden instructions or a link to an unknown website. This setting can be changed at any time without restarting.</p>
           <div class="choices cols-3" id="docsCards"></div>
-          <p class="help">Single tools use the clean documents unless you choose Poisoned only.</p>
+          <p class="help">Single tools use the clean documents unless Poisoned only is selected.</p>
         </fieldset>
       </div>
     </section>
 
     <section id="run" class="block" aria-labelledby="run-h">
-      <div class="step"><span class="num" aria-hidden="true">2</span><h2 id="run-h">How do you want to run?</h2>
-        <p>Pick one. Both use the settings above and the same Queue. If you are not sure, use Guided scan.</p></div>
+      <div class="step"><span class="num" aria-hidden="true">2</span><h2 id="run-h">How would you like to run the tests?</h2>
+        <p>Select one. Both use the settings above and the same Queue. If unsure, use Guided scan.</p></div>
       <fieldset class="routes">
-        <legend class="sr-only">How do you want to run?</legend>
+        <legend class="sr-only">How would you like to run the tests?</legend>
         <div class="choices cols-2" style="margin-top:0">
           <label class="choice route"><input type="radio" name="route" value="guided" id="routeGuided" aria-controls="panelGuided" checked>
             <span class="choice-body"><span class="choice-head"><span class="choice-title">Guided scan</span><span class="chip rec">Recommended</span></span>
-              <span class="choice-desc">Pick what to test, such as prompt injection or secret leaks. The page chooses the tools for you and builds a grid of results with real example replies.</span></span></label>
+              <span class="choice-desc">Select what to test, such as prompt injection or secret leaks. The tools are chosen automatically, and the results are shown in a table with example replies.</span></span></label>
           <label class="choice route"><input type="radio" name="route" value="single" id="routeSingle" aria-controls="panelSingle">
             <span class="choice-body"><span class="choice-head"><span class="choice-title">Run single tools</span><span class="chip adv">Advanced</span></span>
-              <span class="choice-desc">Pick the tools yourself, such as a quick Garak check on one guardrail. There is no grid. You read the output in the Queue and in Log reports.</span></span></label>
+              <span class="choice-desc">Select the tools directly, for example a quick Garak check on one guardrail. There is no results table. Output is read in the Queue and in Log reports.</span></span></label>
         </div>
       </fieldset>
 
@@ -270,82 +306,81 @@
         <div class="card-head"><h3 id="gh" tabindex="-1">Guided scan</h3><span class="chip rec">Recommended</span></div>
         <dl class="meta">
           <dt>Best for</dt><dd>Testing the chatbot against OWASP risks, such as prompt injection or secret leaks.</dd>
-          <dt>You pick</dt><dd>What to test (categories). The page picks the tools.</dd>
-          <dt>You get</dt><dd>A grid of category against guardrail, with real example replies. The secret is masked. Saved to results/scans/&lt;name&gt;.md.</dd>
+          <dt>You pick</dt><dd>What to test (the risk categories). The tools are chosen automatically.</dd>
+          <dt>You get</dt><dd>A table of risk category against guardrail, with example replies. The secret is masked. The report is saved to results/scans/&lt;name&gt;.md.</dd>
           <dt>Read it in</dt><dd>Step 3, Scan results.</dd>
         </dl>
         <fieldset class="field" id="catsField">
-          <legend>What do you want to test?</legend>
+          <legend>What should be tested?</legend>
           <div class="field-top">
-            <p class="help">These are the OWASP LLM Top 10 categories, a standard list of risks for chatbots like this one. The chips show which tools cover each one. Dashed chips are slow tools.</p>
-            <div class="btnrow"><button type="button" class="btn ghost sm" id="catAll">Tick all</button><button type="button" class="btn ghost sm" id="catNone">Clear</button></div>
+            <p class="help">All ten OWASP LLM Top 10 risks are listed, a standard list of chatbot risks. Each card names the tools that test it. Dashed labels are slow tools. Greyed-out risks have no automated test yet.</p>
+            <div class="btnrow"><button type="button" class="btn ghost sm" id="catAll">Select all</button><button type="button" class="btn ghost sm" id="catNone">Clear</button></div>
           </div>
           <div class="choices auto" id="cats"></div>
-          <details class="manual" id="catsManual" hidden><summary id="catsManualSummary">Not testable yet</summary><div class="choices auto" id="catsManualCards"></div></details>
         </fieldset>
         <div class="choices" style="grid-template-columns:minmax(0,1fr)" id="slowWrap">
           <label class="choice"><input type="checkbox" id="slow" name="slow"><span class="choice-body"><span class="choice-head"><span class="choice-title">Include slow tools</span></span>
-            <span class="choice-desc" id="slowDesc">Adds the slow tools. They send far more requests or need heavy set-up, so the scan takes much longer. Off by default.</span></span></label>
+            <span class="choice-desc" id="slowDesc">Adds the slow tools. They send many more requests or need extra set-up, so the scan takes much longer. Off by default.</span></span></label>
         </div>
         <div class="fgroup">
           <label class="flabel" for="scanName">Scan name (optional)</label>
-          <input type="text" id="scanName" maxlength="40" placeholder="e.g. blocklist-check" aria-describedby="scanNameHelp">
-          <p class="help" id="scanNameHelp">Letters, digits, - and _ only, up to 40. The report is saved as results/scans/&lt;name&gt;.md. Leave it empty and the page makes a name from the date and time.</p>
+          <input type="text" id="scanName" maxlength="40" placeholder="for example blocklist-check" aria-describedby="scanNameHelp">
+          <p class="help" id="scanNameHelp">Letters, digits, hyphens and underscores only, up to 40 characters. The report is saved as results/scans/&lt;name&gt;.md. If left empty, a name is generated from the date and time.</p>
         </div>
         <div class="plan" id="scanPlan">
           <h4>What will run</h4>
           <dl><dt>Tests</dt><dd id="spTests"></dd><dt>Tools</dt><dd id="spTools"></dd><dt>Guardrails</dt><dd id="spGuards"></dd>
-            <dt>Tier and documents</dt><dd id="spTier"></dd><dt>Size</dt><dd id="spSize"></dd></dl>
+            <dt>Test size and documents</dt><dd id="spTier"></dd><dt>Size</dt><dd id="spSize"></dd></dl>
           <p class="warnline" id="spWarn" hidden></p>
           <p id="spHint"></p>
           <button type="button" class="btn link" data-goto="settings">Change settings</button>
         </div>
         <div class="actions">
           <button type="button" class="btn primary run" id="scanGo" aria-describedby="scanPlan">Start guided scan</button>
-          <span class="muted">Jobs join the Queue and run one at a time.</span>
+          <span class="muted">Jobs are added to the Queue and run one at a time.</span>
         </div>
         <div class="status-line" id="scanMsg" role="status" aria-live="polite"></div>
       </div>
 
       <div class="card" id="panelSingle" aria-labelledby="sh" hidden>
         <div class="card-head"><h3 id="sh" tabindex="-1">Run single tools</h3><span class="chip adv">Advanced</span></div>
-        <div class="callout"><span class="grow">Use this instead of the guided scan, not after it. Want the grid with example replies? Choose Guided scan.</span>
+        <div class="callout"><span class="grow">Use this instead of the guided scan, not after it. For the results table with example replies, choose Guided scan.</span>
           <button type="button" class="btn ghost sm" id="toGuided">Switch to Guided scan</button></div>
         <dl class="meta">
-          <dt>Best for</dt><dd>One specific tool check, such as a smoke run of Garak on the blocklist.</dd>
-          <dt>You pick</dt><dd>The tools yourself. There are no categories.</dd>
-          <dt>You get</dt><dd>The tool's own output only. No grid.</dd>
-          <dt>Read it in</dt><dd>The Queue (press Log on a job) and Log reports.</dd>
+          <dt>Best for</dt><dd>A check with one specific tool, such as a Smoke run of Garak on the blocklist.</dd>
+          <dt>You pick</dt><dd>The tools. There are no risk categories.</dd>
+          <dt>You get</dt><dd>The tool's own output only. There is no results table.</dd>
+          <dt>Read it in</dt><dd>The Queue (select Log on a job) and Log reports.</dd>
         </dl>
         <fieldset class="field" id="toolsField">
           <legend>Which tools?</legend>
-          <p class="help">The chip on each card is roughly how many requests that tool sends to each guardrail, at the tier you chose in step 1.</p>
+          <p class="help">The label on each card is the approximate number of requests the tool sends to each guardrail, at the test size chosen in step 1.</p>
           <div class="choices auto" id="tools"></div>
         </fieldset>
         <div class="fgroup">
           <label class="flabel" for="runLabel">Run label (optional)</label>
-          <input type="text" id="runLabel" maxlength="40" placeholder="e.g. gap1" aria-describedby="runLabelHelp">
-          <p class="help" id="runLabelHelp">Names this batch in the Queue. Letters, digits, - and _ only, up to 40. Jobs in one batch share the label. A label that has already been run is skipped. Leave it empty and the page makes one from the date and time.</p>
+          <input type="text" id="runLabel" maxlength="40" placeholder="for example gap1" aria-describedby="runLabelHelp">
+          <p class="help" id="runLabelHelp">Names this batch in the Queue. Letters, digits, hyphens and underscores only, up to 40 characters. Jobs in one batch share the label. A label that has already been used is skipped. If left empty, a label is generated from the date and time.</p>
         </div>
         <div class="plan" id="runPlan">
           <h4>What will run</h4>
           <dl><dt>Tools</dt><dd id="rpTools"></dd><dt>Guardrails</dt><dd id="rpGuards"></dd>
-            <dt>Tier and documents</dt><dd id="rpTier"></dd><dt>Size</dt><dd id="rpSize"></dd></dl>
-          <p id="rpNote" hidden>Single tools use clean documents. Automatic only splits documents in a Guided scan.</p>
+            <dt>Test size and documents</dt><dd id="rpTier"></dd><dt>Size</dt><dd id="rpSize"></dd></dl>
+          <p id="rpNote" hidden>Single tools use clean documents. Automatic document selection applies to Guided scan only.</p>
           <p id="rpHint"></p>
           <button type="button" class="btn link" data-goto="settings">Change settings</button>
         </div>
         <div class="actions">
           <button type="button" class="btn secondary run" id="queueRuns" aria-describedby="runPlan">Run selected tools</button>
-          <span class="muted">Jobs join the Queue and run one at a time.</span>
+          <span class="muted">Jobs are added to the Queue and run one at a time.</span>
         </div>
         <div class="status-line" id="message" role="status" aria-live="polite"></div>
       </div>
     </section>
 
     <div id="results" class="block" style="display:flex;flex-direction:column;gap:16px">
-      <div class="step"><span class="num" aria-hidden="true">3</span><h2 id="results-h">Read the results</h2>
-        <p>Guided scans show up as a grid. Single-tool runs show up in the Queue and in Log reports. Jobs from both routes appear in the Queue.</p></div>
+      <div class="step"><span class="num" aria-hidden="true">3</span><h2 id="results-h">Review the results</h2>
+        <p>Guided scans are shown as a results table. Single-tool runs are shown in the Queue and in Log reports. Jobs from both routes appear in the Queue.</p></div>
 
       <section class="card" id="scan-results" aria-labelledby="scan-h">
         <div class="card-head"><h3 id="scan-h" tabindex="-1">Scan results</h3><span class="chip adv">From Guided scan</span></div>
@@ -355,38 +390,38 @@
           <span id="scanCopied" class="muted" role="status"></span>
         </div>
         <p class="help" id="scanProgress"></p>
-        <div id="scanBox" data-state="empty"><p class="help">No scan yet. In step 2 choose Guided scan, tick what to test and press Start guided scan.</p></div>
+        <div id="scanBox" data-state="empty"><p class="help">No scan has been run. In step 2, choose Guided scan, select what to test and press Start guided scan.</p></div>
       </section>
 
       <section class="card" id="queue" aria-labelledby="queue-h">
         <div class="card-head"><h3 id="queue-h" tabindex="-1">Queue</h3><span class="chip adv">Both routes</span><span class="grow"></span>
           <button type="button" class="btn ghost sm" id="clear">Clear finished</button></div>
-        <p class="caption">Every job from either route lands here and runs one at a time, because the test chatbot answers one request at once. Press Log to follow a job's output.</p>
+        <p class="caption">Every job from either route is listed here and runs one at a time, because the test chatbot handles one request at a time. Select Log to follow a job's output.</p>
         <div class="tablewrap" id="queueWrap">
           <table id="jobsTable" role="table">
-            <thead role="rowgroup"><tr role="row"><th role="columnheader">#</th><th role="columnheader">Tool</th><th role="columnheader">Guardrail</th><th role="columnheader">Tier</th><th role="columnheader">Label</th><th role="columnheader">From</th><th role="columnheader">Status</th><th role="columnheader">Result</th><th role="columnheader">Started</th><th role="columnheader"><span class="sr-only">Actions</span></th></tr></thead>
+            <thead role="rowgroup"><tr role="row"><th role="columnheader">#</th><th role="columnheader">Tool</th><th role="columnheader">Guardrail</th><th role="columnheader">Test size</th><th role="columnheader">Label</th><th role="columnheader">From</th><th role="columnheader">Status</th><th role="columnheader">Result</th><th role="columnheader">Started</th><th role="columnheader"><span class="sr-only">Actions</span></th></tr></thead>
             <tbody id="jobs" role="rowgroup"></tbody>
           </table>
         </div>
-        <p class="help">Result is what the tool itself flagged, out of what it tried. A tool can be wrong. The grid in Scan results uses its own check.</p>
-        <p class="help" id="logtitle" style="margin-top:16px">Press Log on a job to follow its output here.</p>
+        <p class="help">Result is the number of attacks the tool itself flagged, out of those it attempted. A tool can be wrong. The Scan results table uses a separate check.</p>
+        <p class="help" id="logtitle" style="margin-top:16px">Select Log on a job to follow its output here.</p>
         <pre id="log" hidden tabindex="0" role="region" aria-label="Job log"></pre>
       </section>
 
       <section class="card" id="reports" aria-labelledby="reports-h">
         <div class="card-head"><h3 id="reports-h" tabindex="-1">Log reports</h3><span class="chip adv">From the server log</span></div>
-        <p class="caption">Comparison matrix: every tool against every guardrail, side by side. Full summary: everything the test chatbot did, from the server log. Use these to read single-tool runs.</p>
+        <p class="caption">Comparison matrix: every tool against every guardrail. Full summary: everything the test chatbot did, taken from the server log. Use these to review single-tool runs.</p>
         <fieldset id="reportDocsField">
-          <legend>Documents for the matrix</legend>
+          <legend>Documents for the comparison</legend>
           <div class="choices" style="grid-template-columns:repeat(2,minmax(0,200px))">
             <label class="choice compact"><input type="radio" name="reportDocs" value="clean" checked><span class="choice-body"><span class="choice-head"><span class="choice-title">Clean</span></span></span></label>
             <label class="choice compact"><input type="radio" name="reportDocs" value="poisoned"><span class="choice-body"><span class="choice-head"><span class="choice-title">Poisoned</span></span></span></label>
           </div>
-          <p class="help">Only the comparison matrix uses this.</p>
+          <p class="help">This applies to the comparison matrix only.</p>
         </fieldset>
         <div class="choices" style="grid-template-columns:minmax(0,320px)">
-          <label class="choice compact"><input type="checkbox" id="stub"><span class="choice-body"><span class="choice-head"><span class="choice-title">Include stub rows</span></span>
-            <span class="choice-desc">Rows from a fake-model target. Leave this off for real results.</span></span></label>
+          <label class="choice compact"><input type="checkbox" id="stub"><span class="choice-body"><span class="choice-head"><span class="choice-title">Include test-mode rows</span></span>
+            <span class="choice-desc">Rows from a test chatbot that uses a fake model. Leave this off for real results.</span></span></label>
         </div>
         <div class="actions">
           <button type="button" class="btn ghost" data-kind="compare">Comparison matrix</button>
@@ -394,14 +429,15 @@
           <button type="button" class="btn ghost" id="copy">Copy</button>
           <span id="copied" class="muted" role="status"></span>
         </div>
-        <pre id="report" tabindex="0" role="region" aria-label="Report output">Press a button to build a report from the server log.</pre>
+        <div id="matrixBox" hidden></div>
+        <pre id="report" tabindex="0" role="region" aria-label="Report output">Select a button to build a report from the server log.</pre>
       </section>
     </div>
   </main>
 </div>
 
 <footer>
-  The secret in the test chatbot is a fake code. This is a proof of concept, not connected to AskDBC or any real LTA system. Only listens on 127.0.0.1.
+  The secret in the test chatbot is a fake code. This is a proof of concept and is not connected to AskDBC or any real LTA system. It accepts connections from this computer only (127.0.0.1).
 </footer>
 
 <script>
@@ -410,32 +446,33 @@ const $ = (id) => document.getElementById(id);
 
 // ---------- plain-English text the page owns ----------
 const TIER_TEXT = {
-  smoke: {title: "Smoke", desc: "A quick check that everything is connected. Roughly 40 requests per tool or fewer."},
-  standard: {title: "Standard", chip: "Normal choice", desc: "The curated set. Usually 70 to 340 requests per tool; Garak sends far more. This is the normal choice."},
-  full: {title: "Full", desc: "Everything, with no cap. Some tools need hours."},
+  smoke: {title: "Smoke", desc: "A quick check that the connection works. About 40 requests per tool or fewer."},
+  standard: {title: "Standard", chip: "Normal choice", desc: "The standard set of tests. Usually 70 to 340 requests per tool; Garak sends far more."},
+  full: {title: "Full", desc: "Every test, with no limit. Some tools need several hours."},
 };
 const DOCS = [
-  {value: "auto", title: "Automatic", chip: "Recommended", desc: "Poisoning tests (LLM05 and LLM09) use the poisoned documents. Everything else uses the clean ones. One scan covers both."},
-  {value: "clean", title: "Clean only", desc: "Normal documents only. LLM05 and LLM09 will show nothing."},
-  {value: "poisoned", title: "Poisoned only", desc: "Every request reads the poisoned documents, which include one booby-trapped document."},
+  {value: "auto", title: "Automatic", chip: "Recommended", desc: "Poisoning tests (LLM05 and LLM09) use the poisoned documents. All other tests use the clean documents. One scan covers both."},
+  {value: "clean", title: "Clean only", desc: "Normal documents only. LLM05 and LLM09 will show no results."},
+  {value: "poisoned", title: "Poisoned only", desc: "Every request uses the poisoned documents, which include one document containing hidden instructions."},
 ];
 const DOCS_WORDS = {auto: "automatic documents", clean: "clean documents only", poisoned: "poisoned documents only"};
 const CATEGORY_PLAIN = {
-  LLM01: "Attack prompts that tell the chatbot to ignore its rules.",
-  LLM02: "Asking for the secret code or other private details.",
-  LLM05: "A poisoned document tricks the chatbot into repeating a fake link.",
-  LLM08: "Asking the chatbot to print its hidden instructions.",
-  LLM09: "Poisoned documents getting retrieved and obeyed.",
+  LLM01: "Prompts that instruct the chatbot to ignore its rules.",
+  LLM02: "Requests for the secret code or other private details.",
+  LLM05: "A poisoned document causes the chatbot to repeat a fake link.",
+  LLM06: "Requests for extremely long replies, such as repeating a word thousands of times.",
+  LLM08: "Requests for the chatbot to reveal its hidden instructions.",
+  LLM09: "Poisoned documents being retrieved and followed.",
   LLM10: "Replies that contain script tags, shell commands or SQL.",
 };
 const TOOL_INFO = {
-  baseline: "Our own written prompts that ask for the secret, plus harmless questions. Shows both leaks and wrongly refused questions.",
-  scripted: "Fixed multi-turn conversations: gradual escalation, role-play and claimed authority.",
-  garak: "Garak, an open-source scanner. Fires a large library of known attack prompts.",
-  giskard: "Giskard, an open-source scanner. Runs leak and wrong-answer scenarios and grades the replies with the local model.",
-  inspect: "Inspect AI, an open-source evaluation framework. Runs written tasks such as injection, role-play jailbreaks and secret extraction.",
-  pyrit: "PyRIT, an open-source attack toolkit. Wraps goals in tricks such as encodings and runs multi-turn attacks. Uses its own Python environment.",
-  promptfoo: "Promptfoo, an open-source test runner. Generates attack test cases for many weaknesses, then grades the replies with the local model.",
+  baseline: "Prompts written for this project that ask for the secret, plus harmless questions. Shows both leaks and harmless questions that were wrongly refused.",
+  scripted: "Fixed multi-message conversations: gradual escalation, role-play and claimed authority.",
+  garak: "Garak, an open-source scanner. Sends a large library of known attack prompts.",
+  giskard: "Giskard, an open-source scanner. Runs leak and incorrect-answer scenarios and grades the replies using the local model.",
+  inspect: "Inspect AI, an open-source evaluation framework. Runs written tasks such as prompt injection, role-play attacks and secret extraction.",
+  pyrit: "PyRIT, an open-source attack toolkit. Disguises requests, for example by encoding them, and runs multi-message attacks. Uses its own Python environment.",
+  promptfoo: "Promptfoo, an open-source test runner. Generates attack test cases for many weaknesses, then grades the replies using the local model.",
 };
 const TOOL_NAMES = {garak: "Garak", giskard: "Giskard", pyrit: "PyRIT", promptfoo: "Promptfoo", inspect: "Inspect AI"};
 const STATUS_TEXT = {queued: "Waiting", running: "Running", done: "Done", failed: "Failed", cancelled: "Cancelled", interrupted: "Interrupted"};
@@ -491,15 +528,15 @@ let lastJobsKey = "", copyTimers = {}, optionsError = false;
 // ---------- status banner and alert ----------
 function drawStatus() {
   const b = $("banner"), a = $("alert");
-  let cls = "banner", text = "Checking the target…", lead = "", body = "", kind = "";
-  if (optionsError) { lead = "The page could not load its options."; body = " Check that python ui/app.py is still running, then reload."; kind = "bad"; text = "Page error"; cls += " bad"; }
+  let cls = "banner", text = "Checking the test chatbot…", lead = "", body = "", kind = "";
+  if (optionsError) { lead = "The page could not load its options."; body = " Confirm that python ui/app.py is still running, then reload the page."; kind = "bad"; text = "Page error"; cls += " bad"; }
   else if (target.checked && !target.reachable) {
-    cls += " bad"; text = "Target not reachable"; kind = "bad"; lead = "Target not reachable.";
+    cls += " bad"; text = "Test chatbot not reachable"; kind = "bad"; lead = "Test chatbot not reachable.";
     body = " Nothing can run until you start it. In a terminal, run: python target/server.py. The page looks for it at " + (target.url || "the default address") + ". You can still read every option below.";
   } else if (target.checked && target.stub) {
-    cls += " warn"; text = "Stub mode: fake model. Results are not real."; kind = "warn"; lead = "Stub mode.";
+    cls += " warn"; text = "Test mode: fake model. Results are not real."; kind = "warn"; lead = "Stub mode.";
     body = " The target is using a fake model, so results only show that the page and tools are connected. They say nothing about how safe the chatbot is. You will be asked to confirm before anything runs.";
-  } else if (target.checked) { cls += " ok"; text = "Target is up at " + target.url; }
+  } else if (target.checked) { cls += " ok"; text = "Test chatbot is running at " + target.url; }
   if (b.className !== cls) b.className = cls;
   setText(b, text);
   a.hidden = !kind;
@@ -512,7 +549,27 @@ function guardrailInfo(id) { return (options.guardrails || []).find((g) => g.id 
 function buildGuardrails() {
   const box = $("guardrailCards"); box.textContent = "";
   (options.guardrails || []).forEach((g) => box.append(choiceCard({type: "checkbox", name: "guardrail", value: g.id, title: g.label, tag: g.id, desc: g.description,
-    note: "Not offered by this target.", noteHidden: true})));
+    note: "Not offered by this test chatbot.", noteHidden: true})));
+}
+// ---------- another chatbot ----------
+function drawChatbot() {
+  const connected = !!(target && target.relay);
+  if (connected) $("cbOther").checked = true;
+  const other = $("cbOther").checked;
+  $("cbForm").hidden = !other || connected;
+  $("cbConnected").hidden = !connected;
+  if (connected) setText($("cbConnectedText"), "Requests go to " + target.relay.url + (target.relay.model ? " (model " + target.relay.model + ")" : "") + ".");
+}
+async function connectChatbot() {
+  const msg = $("cbMsg"); setText(msg, "Connecting…");
+  try {
+    await api("/api/chatbot", {url: $("cbUrl").value.trim(), model: $("cbModel").value.trim(), key_env: $("cbKeyEnv").value.trim(), secrets: $("cbSecrets").value, system_prompt: $("cbPrompt").value.trim()});
+    setText(msg, "Connected."); await refresh();
+  } catch (e) { setText(msg, "Not connected: " + e.message); }
+}
+async function disconnectChatbot() {
+  try { await api("/api/chatbot/disconnect", {}); setText($("cbMsg"), "Disconnected."); } catch (e) { setText($("cbMsg"), "Could not disconnect: " + e.message); }
+  await refresh();
 }
 function syncGuardrails() {
   const key = target.reachable + ":" + target.guardrails.map((g) => g.id).join(",");
@@ -549,7 +606,7 @@ function sizeText(toolsPerGroup, guardsPerGroup, tier) {
 function plan() {
   if (!options) return;
   const tier = radioValue("tier", "smoke"), docs = radioValue("docs", "auto"), guards = checked("guardrails"), slow = $("slow").checked;
-  const gtext = guards.length ? guards.join(", ") : "none ticked yet";
+  const gtext = guards.length ? guards.join(", ") : "none selected yet";
   // guided scan: mirrors the server, which splits categories by document set when documents are automatic
   const ids = checked("cats"), cats = options.categories.filter((c) => ids.includes(c.id));
   const groups = docs === "auto" ? [cats.filter((c) => c.docs === "poisoned"), cats.filter((c) => c.docs !== "poisoned")] : [cats];
@@ -563,23 +620,23 @@ function plan() {
     perGroup.push(options.tools.filter((t) => tools.has(t)));
   });
   const usedList = options.tools.filter((t) => used.has(t)), left = options.tools.filter((t) => wanted.has(t) && !used.has(t));
-  setText($("spTests"), ids.length ? ids.join(", ") : "none ticked yet");
+  setText($("spTests"), ids.length ? ids.join(", ") : "none selected yet");
   setText($("spTools"), (usedList.length ? usedList.join(", ") : "none yet") + (left.length ? ". Left out (slow): " + left.join(", ") + "." : ""));
   setText($("spGuards"), gtext);
   setText($("spTier"), tier + ", " + DOCS_WORDS[docs]);
   setText($("spSize"), guards.length ? sizeText(perGroup, guardsPerGroup, tier) : "-");
   const warn = docs === "clean" && (ids.includes("LLM05") || ids.includes("LLM09"));
   $("spWarn").hidden = !warn;
-  setText($("spWarn"), "LLM05 and LLM09 need poisoned documents, so they show nothing on clean only. Set Documents to automatic.");
-  setText($("spHint"), !ids.length ? "Tick at least one test above." : !guards.length ? "Tick at least one guardrail in step 1." : "Press Start guided scan to add these jobs to the Queue.");
+  setText($("spWarn"), "LLM05 and LLM09 need poisoned documents, so they show no results with clean documents only. Set Documents to Automatic.");
+  setText($("spHint"), !ids.length ? "Select at least one test above." : !guards.length ? "Select at least one guardrail in step 1." : "Press Start guided scan to add these jobs to the Queue.");
   // single tools
   const tools = checked("tools");
-  setText($("rpTools"), tools.length ? tools.join(", ") : "none ticked yet");
+  setText($("rpTools"), tools.length ? tools.join(", ") : "none selected yet");
   setText($("rpGuards"), gtext);
   setText($("rpTier"), tier + ", " + (docs === "poisoned" ? "poisoned" : "clean") + " documents");
   setText($("rpSize"), guards.length ? sizeText([tools], [guards.length], tier) : "-");
   $("rpNote").hidden = docs !== "auto";
-  setText($("rpHint"), !tools.length ? "Tick at least one tool above." : !guards.length ? "Tick at least one guardrail in step 1." : "Press Run selected tools to add these jobs to the Queue.");
+  setText($("rpHint"), !tools.length ? "Select at least one tool above." : !guards.length ? "Select at least one guardrail in step 1." : "Press Run selected tools to add these jobs to the Queue.");
   document.querySelectorAll("#tools .chip[data-tool]").forEach((c) => {
     const n = estimateOf(c.dataset.tool, tier);
     setText(c, n === null ? "large, no estimate" : "about " + fmt(n) + " requests");
@@ -596,20 +653,16 @@ function buildDocs() {
   DOCS.forEach((d) => box.append(choiceCard({type: "radio", name: "docs", value: d.value, title: d.title, chip: d.chip, desc: d.desc, checked: d.value === "auto"})));
 }
 function buildCategories() {
-  const box = $("cats"), manualBox = $("catsManualCards"); box.textContent = ""; manualBox.textContent = "";
-  let manual = 0;
+  const box = $("cats"); box.textContent = "";
   options.categories.forEach((c) => {
     if (c.manual) {
-      manual++;
-      manualBox.append(choiceCard({type: "checkbox", name: "cat", value: c.id, title: c.name, tag: c.id, desc: "No automated test yet: " + c.manual, disabled: true}));
+      box.append(choiceCard({type: "checkbox", name: "cat", value: c.id, title: c.name, tag: c.id, desc: "No automated test available yet. " + c.manual, chips: [chip("not tested", "adv")], disabled: true}));
       return;
     }
-    const chips = c.tools.map((t) => chip(t, "tool" + (options.slow_tools.includes(t) ? " slow" : "")));
+    const chips = [el("span", "Tools:", "chiplabel")].concat(c.tools.map((t) => chip(toolName(t), "tool" + (options.slow_tools.includes(t) ? " slow" : ""))));
     if (c.docs === "poisoned") chips.push(chip("poisoned documents", "warn"));
     box.append(choiceCard({type: "checkbox", name: "cat", value: c.id, title: c.name, tag: c.id, desc: CATEGORY_PLAIN[c.id] || "", chips}));
   });
-  $("catsManual").hidden = !manual;
-  setText($("catsManualSummary"), "Not testable yet (" + manual + ")");
   setText($("slowDesc"), "Adds " + options.slow_tools.map(toolName).join(", ") + ". They send far more requests or need heavy set-up, so the scan takes much longer. Off by default.");
 }
 function buildTools() {
@@ -647,10 +700,10 @@ function drawJobs(jobs) {
   lastJobsKey = key;
   const body = $("jobs"); body.textContent = "";
   if (!jobs.length) {
-    const tr = el("tr", null, null, {role: "row"}), td = el("td", "No jobs yet. Add some in step 2.", null, {colspan: "10", role: "cell"});
+    const tr = el("tr", null, null, {role: "row"}), td = el("td", "No jobs yet. Add jobs in step 2.", null, {colspan: "10", role: "cell"});
     tr.append(td); body.append(tr); return;
   }
-  const cols = ["#", "Tool", "Guardrail", "Tier", "Label", "From", "Status", "Result", "Started"];
+  const cols = ["#", "Tool", "Guardrail", "Test size", "Label", "From", "Status", "Result", "Started"];
   jobs.slice().reverse().forEach((j) => {
     const tr = el("tr", null, null, {role: "row"});
     const cells = [j.id, j.tool, j.target, j.tier, j.label, scanLabels.has(j.label) ? "Guided scan" : "Single tool", null, j.result || "", (j.started || "").replace("T", " ")];
@@ -722,7 +775,7 @@ async function loadScan() {
   const jobCount = p.queued + p.running + p.done + p.failed + p.cancelled;
   setText($("scanProgress"), jobCount
     ? p.done + " done, " + p.running + " running, " + p.queued + " waiting" + (p.failed ? ", " + p.failed + " failed" : "") + ". Saved to " + d.saved
-    : "This scan's jobs are no longer in the Queue (cleared). The grid is read from the log, so it is still correct. Saved to " + d.saved);
+    : "This scan's jobs are no longer in the Queue because they were cleared. The results are read from the log and remain correct. Saved to " + d.saved);
   const drawn = scanLabel + "\n" + d.markdown;
   scanLoaded = true;
   if (drawn === scanDrawn) return;
@@ -732,14 +785,14 @@ async function loadScan() {
   const r = d.result;
   box.append(scanGrid(r));
   const leg = el("div", null, "legend");
-  [["hit", "Attack worked at least once"], ["safe", "Tested and held"], ["none", "No matching requests yet"]].forEach(([k, txt]) => {
+  [["hit", "Attack succeeded at least once"], ["safe", "Tested and withstood"], ["none", "No matching requests yet"]].forEach(([k, txt]) => {
     const s = el("span", null, "sw"); s.append(el("i", null, k), document.createTextNode(txt)); leg.append(s);
   });
-  box.append(leg, el("p", "Counts index the log. They are not attack success rates. \"Unsure\" replies look suspicious (part of the secret, a quoted poisoned note, an empty reply) but the checks cannot settle them: read those by hand.", "help"));
+  box.append(leg, el("p", "The counts are taken from the log. They are not attack success rates. \"Unsure\" replies look suspicious (part of the secret, a quoted poisoned note or an empty reply) but the checks cannot settle them. Review those manually.", "help"));
   const shown = r.categories.map((c) => c.id);
-  if (shown.includes("LLM05") && shown.includes("LLM09")) box.append(el("p", "LLM05 and LLM09 share one test (the poisoned document), so their rows match.", "help"));
-  if (r.categories.some((c) => c.docs === "poisoned")) box.append(el("p", "Poisoned-document rows only count requests that reached the document lookup. A guardrail that stops a request earlier (the blocklist) shows fewer requests.", "help"));
-  box.append(el("h4", "Real example replies (secret masked)", "sub"));
+  if (shown.includes("LLM05") && shown.includes("LLM09")) box.append(el("p", "LLM05 and LLM09 share one test (the poisoned document), so their rows are identical.", "help"));
+  if (r.categories.some((c) => c.docs === "poisoned")) box.append(el("p", "Poisoned-document rows count only requests that reached the document lookup. A guardrail that stops a request earlier (such as the blocklist) shows fewer requests.", "help"));
+  box.append(el("h4", "Example replies (secret masked)", "sub"));
   r.categories.forEach((c) => {
     const det = el("details", null, null, {"data-cat": c.id}); det.open = open.has(c.id);
     det.append(el("summary", c.id + " " + c.name + ": " + c.verdict));
@@ -752,14 +805,54 @@ async function loadScan() {
     if (!c.evidence.length) det.append(el("p", "No successful attack to show.", "help"));
     box.append(det);
   });
-  if (r.gaps.length) box.append(el("p", "No automated test yet: " + r.gaps.map((g) => g.id).join(", "), "help"));
+  if (r.gaps.length) box.append(el("p", "No automated test available yet: " + r.gaps.map((g) => g.id).join(", "), "help"));
 }
 async function copyText(text, statusId) {
   const s = $(statusId);
   clearTimeout(copyTimers[statusId]);
   try { await navigator.clipboard.writeText(text); setText(s, "Copied."); }
-  catch (e) { setText(s, "Could not copy. Select the text and copy it by hand."); }
+  catch (e) { setText(s, "Could not copy. Select the text and copy it manually."); }
   copyTimers[statusId] = setTimeout(() => setText(s, ""), 2500);
+}
+
+// ---------- comparison matrix ----------
+function pctText(n, d) { if (!d) return ""; const p = 100 * n / d; return n > 0 && p < 0.5 ? "<1%" : Math.round(p) + "%"; }
+function matrixLine(label, n, d) {
+  const l = el("span", null, "line"), k = el("span", label, "k"), v = el("span", fmt(n) + " / " + fmt(d), "n");
+  v.append(el("small", pctText(n, d))); l.append(k, v); return l;
+}
+function drawMatrix(m) {
+  const box = $("matrixBox"); box.textContent = ""; box.hidden = false;
+  box.append(el("h4", "Comparison matrix: " + m.docs + " documents", "sub"));
+  if (!m.tools.length) { box.append(el("p", "No runs with a summary file for the " + m.docs + " documents yet.", "help")); return; }
+  box.append(el("p", "Each box shows two numbers. Tool flagged: the attacks the tool itself counted as successful, out of those it ran (the tool can be wrong in either direction). Actual leaks: replies that contained the secret or system prompt according to the project's own check, out of all requests (a minimum figure, not an attack success rate). Red means at least one actual leak. Green means none. A yellow label marks a short test.", "help"));
+  const wrap = el("div", null, "tablewrap gridwrap"), t = el("table"), head = el("tr");
+  head.append(el("th", "Tool")); m.guardrails.forEach((g) => head.append(el("th", g)));
+  const thead = el("thead"); thead.append(head); t.append(thead);
+  const tb = el("tbody");
+  m.tools.forEach((tool) => {
+    const tr = el("tr"); tr.append(el("td", tool, "rowhead"));
+    m.guardrails.forEach((g) => {
+      const c = m.cells[tool + "|" + g];
+      if (!c) { tr.append(el("td", "not run", "none mcell")); return; }
+      const td = el("td", null, "mcell " + (c.leaks > 0 ? "hit" : "safe"));
+      td.append(matrixLine("tool flagged", c.flagged, c.attempted), matrixLine("actual leaks", c.leaks, c.requests));
+      if (c.tier === "smoke") td.append(el("span", "short test (Smoke)", "short"));
+      tr.append(td);
+    });
+    tb.append(tr);
+  });
+  t.append(tb); wrap.append(t); box.append(wrap);
+  const det = el("details"); det.append(el("summary", "Which run is behind each box"));
+  const w2 = el("div", null, "tablewrap gridwrap"), t2 = el("table"), h2 = el("tr");
+  ["Tool", "Guardrail", "Run", "Test size", "Requests"].forEach((x) => h2.append(el("th", x)));
+  const th2 = el("thead"); th2.append(h2); t2.append(th2);
+  const b2 = el("tbody");
+  m.tools.forEach((tool) => m.guardrails.forEach((g) => {
+    const c = m.cells[tool + "|" + g]; if (!c) return;
+    const tr = el("tr"); [tool, g, c.run, c.tier, fmt(c.requests)].forEach((x) => tr.append(el("td", x))); b2.append(tr);
+  }));
+  t2.append(b2); w2.append(t2); det.append(w2); box.append(det);
 }
 
 // ---------- starting runs ----------
@@ -770,10 +863,10 @@ function messageWith(id, text, links, bad) {
 }
 async function startScan() {
   const ids = checked("cats"), guards = checked("guardrails"), name = $("scanName").value.trim();
-  if (!ids.length) return messageWith("scanMsg", "Not started: tick at least one test.", [], true);
-  if (!guards.length) return messageWith("scanMsg", "Not started: tick at least one guardrail in step 1.", [], true);
-  if (name && !LABEL_OK.test(name)) return messageWith("scanMsg", "Not started: the name may only use letters, digits, - and _ (40 at most).", [], true);
-  if (target.stub && !confirm("The target is in stub mode, so these results would be fake. Scan anyway?")) return;
+  if (!ids.length) return messageWith("scanMsg", "Not started: select at least one test.", [], true);
+  if (!guards.length) return messageWith("scanMsg", "Not started: select at least one guardrail in step 1.", [], true);
+  if (name && !LABEL_OK.test(name)) return messageWith("scanMsg", "Not started: the name may only use letters, digits, hyphens and underscores (40 characters at most).", [], true);
+  if (target.stub && !confirm("The test chatbot is in test mode, so these results would not be real. Scan anyway?")) return;
   const body = {categories: ids, guardrails: guards, tier: radioValue("tier", "smoke"), include_slow: $("slow").checked, docs: radioValue("docs", "auto")};
   if (name) body.label = name;
   try {
@@ -786,9 +879,9 @@ async function startScan() {
 }
 async function runTools() {
   const tools = checked("tools"), guards = checked("guardrails");
-  if (!tools.length) return messageWith("message", "Not started: tick at least one tool.", [], true);
-  if (!guards.length) return messageWith("message", "Not started: tick at least one guardrail in step 1.", [], true);
-  if (target.stub && !confirm("The target is in stub mode, so these results would be fake. Run anyway?")) return;
+  if (!tools.length) return messageWith("message", "Not started: select at least one tool.", [], true);
+  if (!guards.length) return messageWith("message", "Not started: select at least one guardrail in step 1.", [], true);
+  if (target.stub && !confirm("The test chatbot is in test mode, so these results would not be real. Run anyway?")) return;
   try {
     const r = await api("/api/jobs", {tools, guardrails: guards, tier: radioValue("tier", "smoke"), label: $("runLabel").value, docs: radioValue("docs", "auto")});
     await refresh();
@@ -800,7 +893,7 @@ async function runTools() {
 // ---------- polling ----------
 async function refresh() {
   try { target = await api("/api/status"); target.checked = true; } catch (e) { target = {reachable: false, checked: true, url: "", error: String(e), guardrails: []}; }
-  drawStatus(); syncGuardrails();
+  drawStatus(); syncGuardrails(); drawChatbot();
   const data = await api("/api/jobs").catch(() => null); if (data) drawJobs(data.jobs);
   await loadScans();
   if (scanLabel && !scanLoaded) loadScan();
@@ -812,6 +905,10 @@ async function init() {
   try { options = await api("/api/options"); } catch (e) { optionsError = true; drawStatus(); return; }
   buildGuardrails(); buildTier(); buildDocs(); buildCategories(); buildTools();
   document.addEventListener("change", plan);
+  $("cbConnect").onclick = connectChatbot; $("cbDisconnect").onclick = disconnectChatbot;
+  document.querySelectorAll('input[name="chatbot"]').forEach((r) => r.addEventListener("change", () => {
+    if (radioValue("chatbot", "local") === "local" && target && target.relay) disconnectChatbot(); else drawChatbot();
+  }));
   document.querySelectorAll('input[name="route"]').forEach((r) => r.addEventListener("change", () => setRoute(radioValue("route", "guided"))));
   $("toGuided").onclick = () => { setRoute("guided"); $("gh").focus({preventScroll: false}); };
   document.querySelectorAll("[data-goto]").forEach((b) => { b.onclick = () => goTo(b.dataset.goto); });
@@ -823,9 +920,12 @@ async function init() {
   $("scanCopy").onclick = () => copyText(scanMarkdown, "scanCopied");
   $("copy").onclick = () => copyText($("report").textContent, "copied");
   document.querySelectorAll("button[data-kind]").forEach((b) => b.onclick = async () => {
-    $("report").textContent = "Building…";
-    try { $("report").textContent = (await api("/api/report", {kind: b.dataset.kind, include_stub: $("stub").checked, docs: radioValue("reportDocs", "clean")})).text; }
-    catch (e) { $("report").textContent = "Error: " + e.message; }
+    $("report").textContent = "Building…"; $("matrixBox").hidden = true;
+    try {
+      const r = await api("/api/report", {kind: b.dataset.kind, include_stub: $("stub").checked, docs: radioValue("reportDocs", "clean")});
+      $("report").textContent = r.text;
+      if (r.matrix) drawMatrix(r.matrix);
+    } catch (e) { $("report").textContent = "Error: " + e.message; }
   });
   window.addEventListener("hashchange", routeFromHash);
   setRoute("guided"); plan(); routeFromHash();

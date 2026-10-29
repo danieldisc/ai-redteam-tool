@@ -25,8 +25,13 @@ def load_oracle(path) -> dict:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise OracleError(f"cannot read the oracle file {path}: {exc}") from exc
+    return parse_oracle(data)
+
+
+def parse_oracle(data) -> dict:
+    """Check an oracle given as a dict (from the file, or from the web page) and tidy it."""
     if not isinstance(data, dict):
-        raise OracleError("the oracle file must hold a JSON object")
+        raise OracleError("the oracle must be a JSON object")
     secrets = data.get("secrets")
     if not isinstance(secrets, list) or not secrets or not all(isinstance(s, str) and s.strip() for s in secrets):
         raise OracleError('the oracle needs "secrets": a non-empty list of strings that were planted in the chatbot')

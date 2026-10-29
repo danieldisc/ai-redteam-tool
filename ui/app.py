@@ -45,6 +45,7 @@ sys.path.insert(0, str(ROOT / "report"))
 sys.path.insert(0, str(ROOT / "target"))
 
 import analyse  # noqa: E402
+import compare  # noqa: E402
 from docs_mode import MODES, NO_POISON, join_target, split_target  # noqa: E402
 import owasp  # noqa: E402
 import scan as scanning  # noqa: E402
@@ -55,13 +56,13 @@ KNOWN_GUARDRAILS = [{"id": "unguarded"}, {"id": "guarded"}]  # for a server that
 # Plain-English names for the page, so they show even when the target is down. Update when a rail is added.
 GUARDRAIL_INFO = [
     {"id": "unguarded", "label": "No guardrail",
-     "description": "No protection. The chatbot answers on its own. This is the baseline to compare the others against."},
+     "description": "No protection. The chatbot answers on its own. This is the baseline against which the others are compared."},
     {"id": "guarded", "label": "NeMo Guardrails",
      "description": "A model-based check on every message, plus a filter on replies. It stops secret leaks well, "
-                    "but it refuses some harmless follow-up questions."},
+                    "but it also refuses some harmless follow-up questions."},
     {"id": "blocklist", "label": "Keyword blocklist",
      "description": "Blocks known attack phrases in the question and the secret in the reply. It is fast, "
-                    "but it misses new wording and encoded text."},
+                    "but it does not detect new wording or encoded text."},
     {"id": "doccheck", "label": "Document check",
      "description": "Removes retrieved documents that hide instructions or link to unknown sites, before the model "
                     "sees them. It only helps against poisoned documents. Otherwise it behaves like no guardrail."},
@@ -277,7 +278,41 @@ class App:
         except (urllib.error.URLError, OSError, ValueError) as exc:
             return {"reachable": False, "url": self.target_url, "error": str(exc), "guardrails": []}
         return {"reachable": True, "url": self.target_url, "stub": bool(data.get("stub")), "docs": data.get("docs"),
-                "docs_modes": data.get("docs_modes") or [], "guardrails": data.get("guardrails") or KNOWN_GUARDRAILS}
+                "docs_modes": data.get("docs_modes") or [], "guardrails": data.get("guardrails") or KNOWN_GUARDRAILS,
+                "relay": data.get("relay")}
+
+    # ---- another chatbot -----------------------------------------------------------------
+    def _target_call(self, method: str, body: dict | None = None) -> tuple[dict, int]:
+        req = urllib.request.Request(f"{self.target_url}/admin/relay", method=method, data=json.dumps(body).encode() if body is not None else None,
+                                     headers={"Content-Type": "application/json", "X-Redteam-Admin": "1"})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return json.load(r), 200
+        except urllib.error.HTTPError as exc:
+            try:
+                detail = json.load(exc).get("detail")
+            except ValueError:
+                detail = None
+            return {"error": detail or f"the target refused ({exc.code})"}, 400
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return {"error": f"the target server cannot be reached ({exc})"}, 502
+
+    def connect_chatbot(self, body: dict) -> tuple[dict, int]:
+        """Point the relay at another chatbot. The key is never typed here: only the name of the variable that holds it."""
+        secrets = body.get("secrets")
+        if isinstance(secrets, str):
+            secrets = [s.strip() for s in re.split(r"[\n,]", secrets) if s.strip()]
+        payload = {"url": body.get("url"), "model": body.get("model") or "", "key_env": body.get("key_env") or "", "secrets": secrets}
+        if body.get("system_prompt"):
+            payload["system_prompt"] = str(body["system_prompt"])
+        if not str(payload["url"] or "").startswith(("http://", "https://")):
+            return {"error": "the address must start with http:// or https://"}, 400
+        if not secrets:
+            return {"error": "enter at least one fake secret that was planted in that chatbot, so replies can be judged"}, 400
+        return self._target_call("PUT", payload)
+
+    def disconnect_chatbot(self) -> tuple[dict, int]:
+        return self._target_call("DELETE")
 
     def options(self) -> dict:
         cats = [{"id": c["id"], "name": c["name"], "tools": c.get("tools", []), "manual": c.get("manual"),
@@ -418,6 +453,13 @@ class App:
                               errors="replace", timeout=120)
         return done.stdout + (("\n" + done.stderr) if done.returncode else "")
 
+    def matrix(self, include_stub: bool, docs: str = "clean") -> dict:
+        """The comparison matrix as data, so the page can draw a real table."""
+        rows = analyse.load_log(self.log_path)
+        if not include_stub:
+            rows = [r for r in rows if not r.get("stub")]
+        return compare.matrix_data(rows, analyse.load_tool_summaries(), docs if docs in MODES else "clean")
+
 
 def make_handler(app: App):
     class Handler(BaseHTTPRequestHandler):
@@ -493,6 +535,12 @@ def make_handler(app: App):
             elif path == "/api/scan":
                 result, code = app.start_scan(body)
                 self._json(result, code)
+            elif path == "/api/chatbot":
+                result, code = app.connect_chatbot(body)
+                self._json(result, code)
+            elif path == "/api/chatbot/disconnect":
+                result, code = app.disconnect_chatbot()
+                self._json(result, code)
             elif path == "/api/jobs/clear":
                 self._json({"removed": app.queue.clear_finished()})
             elif (m := re.fullmatch(r"/api/jobs/(\d+)/cancel", path)):
@@ -502,7 +550,10 @@ def make_handler(app: App):
                 kind = body.get("kind")
                 if kind not in ("summary", "compare"):
                     return self._json({"error": "kind must be summary or compare"}, 400)
-                self._json({"text": app.report(kind, bool(body.get("include_stub")), body.get("docs") or "clean")})
+                out = {"text": app.report(kind, bool(body.get("include_stub")), body.get("docs") or "clean")}
+                if kind == "compare":
+                    out["matrix"] = app.matrix(bool(body.get("include_stub")), body.get("docs") or "clean")
+                self._json(out)
             else:
                 self._json({"error": "not found"}, 404)
 

@@ -253,6 +253,39 @@ else:
         except HTTPException as exc:
             check("server: an external chatbot that is down gives 502", exc.status_code == 502)
 
+# ---- connecting another chatbot while the server runs ---------------------------------------------------
+if "server" in globals() and hasattr(server, "connect_relay"):
+    class AdminReq:
+        def __init__(self, body, host="127.0.0.1", header="1"):
+            self.body, self.client = body, type("C", (), {"host": host})()
+            self.headers = {"x-redteam-admin": header} if header else {}
+
+        async def json(self):
+            return self.body
+
+    def admin(fn, body=None, **kw):
+        try:
+            return asyncio.run(fn(AdminReq(body, **kw))), 200
+        except HTTPException as exc:
+            return None, exc.status_code
+
+    good = {"url": "http://127.0.0.1:9/v1", "model": "m", "secrets": ["ZEBRA-9921"]}
+    server.state.update(guardrails={"unguarded": Plain()}, oracle=None)
+    check("admin: refused without the header", admin(server.connect_relay, good, header=None)[1] == 403)
+    check("admin: refused from another computer", admin(server.connect_relay, good, host="192.168.1.5")[1] == 403)
+    check("admin: a bad address is refused", admin(server.connect_relay, dict(good, url="ftp://x"))[1] == 400)
+    check("admin: no secret is refused", admin(server.connect_relay, {"url": good["url"]})[1] == 400)
+    check("admin: a key typed instead of a variable name is refused", admin(server.connect_relay, dict(good, key_env="sk-abc123"))[1] == 400)
+    check("admin: an unset key variable is refused", admin(server.connect_relay, dict(good, key_env="NO_SUCH_VARIABLE_XYZ"))[1] == 400)
+    out, code = admin(server.connect_relay, good)
+    check("admin: a good request registers the relay and its oracle", code == 200 and "relay" in server.state["guardrails"]
+          and server.state["oracle"]["secrets"] == ["ZEBRA-9921"] and "askdbc-relay" in server.served_models())
+    health_ = asyncio.run(server.health())
+    check("admin: the health route reports the relay", health_["relay"] == {"url": "http://127.0.0.1:9/v1", "model": "m"})
+    out, code = admin(server.disconnect_relay, None)
+    check("admin: disconnecting removes it", code == 200 and "relay" not in server.state["guardrails"] and server.state["oracle"] is None
+          and asyncio.run(server.health())["relay"] is None)
+
 # ---- the web page's scan: the relay is not run on poisoned documents -----------------------------------
 import app as ui  # noqa: E402
 import test_ui  # noqa: E402
@@ -260,6 +293,17 @@ import test_ui  # noqa: E402
 class Health(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
+
+    def _admin(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        Health.seen = {"method": self.command, "header": self.headers.get("X-Redteam-Admin"), "body": json.loads(self.rfile.read(n) or b"{}")}
+        data = b"{}"
+        self.send_response(200)
+        self.send_header("content-length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    do_PUT = do_DELETE = _admin
 
     def do_GET(self):
         data = json.dumps({"status": "ok", "stub": False, "docs": "both", "docs_modes": ["clean", "poisoned"],
@@ -277,6 +321,14 @@ with tempfile.TemporaryDirectory() as tmp:
     tmp = Path(tmp)
     app = ui.App(f"http://127.0.0.1:{health.server_port}", 0, state_dir=tmp / "s", results_raw=tmp / "raw", build_command=test_ui.quick,
                  log_path=tmp / "none.jsonl", scans_dir=tmp / "scans")
+    body, code = app.connect_chatbot({"url": "http://192.168.1.20:9000/v1", "model": "m", "secrets": "ZEBRA-9921, ABC-1\nXYZ-2", "system_prompt": "You are a bot."})
+    check("page: connecting passes the details to the target with the admin header",
+          code == 200 and Health.seen["method"] == "PUT" and Health.seen["header"] == "1" and Health.seen["body"]["secrets"] == ["ZEBRA-9921", "ABC-1", "XYZ-2"]
+          and Health.seen["body"]["system_prompt"] == "You are a bot.")
+    check("page: a bad address is refused before the target is called", app.connect_chatbot({"url": "x", "secrets": "A"})[1] == 400)
+    check("page: a missing secret is refused", app.connect_chatbot({"url": "http://x/v1", "secrets": " "})[1] == 400)
+    app.disconnect_chatbot()
+    check("page: disconnecting calls DELETE", Health.seen["method"] == "DELETE")
     body, code = app.start_scan({"categories": ["LLM01", "LLM05"], "guardrails": ["unguarded", "relay"], "tier": "smoke", "label": "ext1"})
     targets = sorted({(j["tool"], j["target"]) for j in body["created"]})
     check("scan: the relay is run on the clean set only", code == 200 and ("scripted", "relay") in targets and not any(t == "relay_poisoned" for _, t in targets)

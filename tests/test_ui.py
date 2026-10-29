@@ -131,6 +131,8 @@ def main() -> int:
         code, body = call(url, "/api/jobs", {"tools": ["baseline", "garak"], "guardrails": ["unguarded"], "tier": "smoke", "label": "web1"})
         results.append(check("posting tools x guardrails creates one job each", code == 200 and [j["tool"] for j in body["created"]] == ["baseline", "garak"]))
         results.append(check("the jobs finish through the web route", wait_until(lambda: all(j["status"] == "done" for j in call(url, "/api/jobs")[1]["jobs"]))))
+        code, rep = call(url, "/api/report", {"kind": "compare", "docs": "clean"})
+        results.append(check("the compare report also returns the matrix as data", code == 200 and isinstance(rep.get("matrix"), dict) and {"tools", "guardrails", "cells"} <= set(rep["matrix"]) and "text" in rep))
         code, logbody = call(url, f"/api/jobs/{body['created'][0]['id']}/log?offset=0")
         results.append(check("the log route returns the output", "attempted 7" in logbody["text"]))
         code, body = call(url, "/api/jobs", {"tools": ["baseline"], "guardrails": ["unguarded"], "tier": "smoke", "label": "used"})
@@ -150,6 +152,10 @@ def main() -> int:
         with urllib.request.urlopen(url + "/", timeout=5) as r:
             page = r.read().decode()
         results.append(check("the page is served", "Red team bench" in page))
+        results.append(check("the page has the other-chatbot form and no hidden fold for untestable risks", 'id="cbForm"' in page and "catsManual" not in page))
+        code, opts = call(url, "/api/options")
+        results.append(check("all ten OWASP risks are offered, untestable ones marked", [c["id"] for c in opts["categories"]] == [f"LLM{n:02d}" for n in range(1, 11)]
+                             and any(c["manual"] for c in opts["categories"]) and all(c["tools"] for c in opts["categories"] if not c["manual"])))
 
         # ---- guardrail descriptions, page copy and page hygiene (additive checks) ---------------
         offline = ui.App("http://127.0.0.1:9", 0, state_dir=tmp / "offline", results_raw=raw, build_command=quick)

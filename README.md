@@ -75,6 +75,8 @@ replies before running `standard`. Every run is tagged `<tool>.<label>`; use a n
 
 ## Attacking another chatbot (relay and oracle)
 
+From the web page, choose **Another chatbot** under Settings and enter its address, the planted fake secret and (if it needs a key) the name of the environment variable that holds the key. No restart is needed. The same thing from the command line:
+
 ```
 python target/server.py --relay-url http://localhost:9000/v1 --oracle oracle.json
 ```

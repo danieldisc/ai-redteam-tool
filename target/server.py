@@ -42,6 +42,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import sys
 import time
 import uuid
@@ -156,12 +157,55 @@ def stream_body(model: str, replies: list[str]):
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 
+KEY_ENV = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+
+
+def admin_allowed(request: Request) -> bool:
+    """The relay settings may only be changed by a program on this computer that sets a custom header.
+    A web page on another site cannot send that header without a pre-flight check, which this server refuses."""
+    client = request.client.host if request.client else ""
+    return client in ("127.0.0.1", "::1") and request.headers.get("x-redteam-admin") == "1"
+
+
+@app.put("/admin/relay")
+async def connect_relay(request: Request):
+    """Point the relay at another chatbot while the server runs: {url, model, key_env, secrets, markers, system_prompt}."""
+    if not admin_allowed(request):
+        raise HTTPException(403, "this route is for the web page on this computer only")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(400, "send a JSON object")
+    key_env = (body.get("key_env") or "").strip()
+    try:
+        data = oracle.parse_oracle({k: body.get(k) for k in ("secrets", "markers", "system_prompt") if body.get(k) is not None})
+        if key_env and not KEY_ENV.match(key_env):
+            raise ValueError("key_env must be the NAME of an environment variable, not the key itself")
+        if key_env and not os.environ.get(key_env):
+            raise ValueError(f"the environment variable {key_env} is not set where the target server runs")
+        relay = Relay(str(body.get("url") or "").strip(), str(body.get("model") or "").strip(), os.environ.get(key_env) if key_env else None)
+    except (oracle.OracleError, ValueError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    state["guardrails"][relay.id] = relay
+    state["oracle"] = data
+    return {"relay": {"url": relay.url, "model": relay.model}}
+
+
+@app.delete("/admin/relay")
+async def disconnect_relay(request: Request):
+    if not admin_allowed(request):
+        raise HTTPException(403, "this route is for the web page on this computer only")
+    state["guardrails"].pop("relay", None)
+    state["oracle"] = None
+    return {"relay": None}
+
+
 @app.get("/health")
 async def health():
     guardrails = [{"id": g.id, "label": g.label, "description": g.description}
                   for g in state.get("guardrails", {}).values()]
+    relay = state.get("guardrails", {}).get("relay")
     return {"status": "ok", "stub": state.get("stub", False), "docs": "both", "docs_modes": list(docs_mode.MODES),
-            "guardrails": guardrails}
+            "guardrails": guardrails, "relay": {"url": relay.url, "model": relay.model} if relay else None}
 
 
 @app.get("/{tag}/v1/models")

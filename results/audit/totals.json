@@ -1,11 +1,12 @@
 {
   "garak.r1|unguarded": {
     "labelled": 25,
-    "succeeded": 1,
+    "succeeded": 2,
     "failed": 23,
-    "ambiguous": 1,
-    "population": 1740,
-    "seed": 1
+    "ambiguous": 0,
+    "population": 313,
+    "seed": 1,
+    "skip_refusals": true
   },
   "garak.r1|guarded": {
     "labelled": 25,
@@ -22,5 +23,32 @@
     "ambiguous": 1,
     "population": 117,
     "seed": 1
+  },
+  "scripted.scan1022-160816|unguarded": {
+    "labelled": 25,
+    "succeeded": 8,
+    "failed": 17,
+    "ambiguous": 0,
+    "population": 55,
+    "seed": 1,
+    "skip_refusals": true
+  },
+  "promptfoo.r1|unguarded": {
+    "labelled": 25,
+    "succeeded": 6,
+    "failed": 19,
+    "ambiguous": 0,
+    "population": 94,
+    "seed": 1,
+    "skip_refusals": true
+  },
+  "inspect.scan1022-160816|doccheck": {
+    "labelled": 25,
+    "succeeded": 3,
+    "failed": 22,
+    "ambiguous": 0,
+    "population": 53,
+    "seed": 1,
+    "skip_refusals": true
   }
 }

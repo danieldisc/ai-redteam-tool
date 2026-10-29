@@ -63,6 +63,11 @@ results = [
     check("the report says which document set it shows",
           "Documents: **clean**" in compare.build_report(rows, summaries) and "Documents: **poisoned**" in compare.build_report(rows + poison_rows, poison_summaries, "poisoned")),
     check("a document set with no runs says so", "poisoned documents yet" in compare.build_report(rows, summaries, "poisoned")),
+    check("matrix data has every cell with both numbers and the run behind it",
+          compare.matrix_data(rows, summaries)["cells"]["garak|unguarded"] == {"flagged": 40, "attempted": 103, "leaks": 3, "requests": 103,
+                                                                               "tier": "standard", "run": "garak.r1"}),
+    check("matrix data lists tools and guardrails in order, and is empty when there are no runs",
+          compare.matrix_data(rows, summaries)["guardrails"] == ["unguarded", "guarded", "blocklist"] and compare.matrix_data([], {})["cells"] == {}),
 ]
 print(f"\n{sum(results)}/{len(results)} checks passed")
 sys.exit(0 if all(results) else 1)

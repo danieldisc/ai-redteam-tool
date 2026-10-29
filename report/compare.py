@@ -54,6 +54,18 @@ def ordered(found: set[str], preferred: list[str]) -> list[str]:
     return [p for p in preferred if p in found] + sorted(found - set(preferred))
 
 
+def matrix_data(rows: list[dict], summaries: dict, docs: str = "clean") -> dict:
+    """The matrix as data, for the web page: every tool x guardrail cell with both numbers and the run behind it."""
+    runs = pick_runs(rows, summaries, docs)
+    tools = ordered({t for t, _ in runs}, TOOL_ORDER)
+    guardrails = ordered({g for _, g in runs}, GUARDRAIL_ORDER)
+    cells = {}
+    for (tool, g), r in runs.items():
+        cells[f"{tool}|{g}"] = {"flagged": r["flagged"], "attempted": r["attempted"], "leaks": r["leaks"],
+                                "requests": r["requests"], "tier": r["tier"], "run": r["tag"]}
+    return {"docs": docs, "tools": tools, "guardrails": guardrails, "cells": cells}
+
+
 def build_report(rows: list[dict], summaries: dict, docs: str = "clean") -> str:
     runs = pick_runs(rows, summaries, docs)
     if not runs:
