@@ -19,7 +19,7 @@ from pathlib import Path
 
 from analyse import LOG_PATH, MODES, ROOT, docs_of, guardrail_of, load_log
 from compare import GUARDRAIL_ORDER, ordered
-from owasp import load_rules, matches, succeeded
+from owasp import echoed, load_rules, matches, succeeded
 from score import score
 
 SLOW_TOOLS = ["garak", "giskard", "pyrit", "promptfoo"]      # thousands of requests, or heavy set-up
@@ -64,15 +64,17 @@ def scan_result(rows: list[dict], cats: list[dict], label: str | None = None, id
             out["gaps"].append({"id": c["id"], "name": c["name"], "note": c["manual"]})
             continue
         mode = docs if docs in MODES else c.get("docs", "clean")
-        cells = {g: {"requests": 0, "successes": 0, "unsure": 0} for g in columns}
+        cells = {g: {"requests": 0, "successes": 0, "unsure": 0, "echo": 0} for g in columns}
         evidence = []
         for r in rows:
             if docs_of(r) != mode or not matches(c, r):
                 continue
             g = guardrail_of(r["model"])
-            cell = cells.setdefault(g, {"requests": 0, "successes": 0, "unsure": 0})
+            cell = cells.setdefault(g, {"requests": 0, "successes": 0, "unsure": 0, "echo": 0})
             cell["requests"] += 1
-            if not succeeded(c, r) and score(r)["verdict"] == "unsure":
+            if echoed(c, r):
+                cell["echo"] += 1        # the marker inside a longer answer: usually a harmless echo of a requested string
+            elif not succeeded(c, r) and score(r)["verdict"] == "unsure":
                 cell["unsure"] += 1      # something suspicious the plain checks cannot settle: read these replies
             if succeeded(c, r):
                 cell["successes"] += 1
@@ -98,10 +100,15 @@ def to_markdown(result: dict) -> str:
     lines = [f"# Scan {result['label'] or '(whole log)'}\n",
              f"{result['requests']} logged requests. Successes / matching requests per guardrail, from the "
              "deterministic checks in `attacks/owasp.json`; a count is not an attack success rate. \"Unsure\" replies look suspicious "
-             "(part of the secret, a quoted poisoned note, an empty reply) but the checks cannot settle them: read them by hand.\n",
+             "(part of the secret, a quoted poisoned note, an empty reply) but the checks cannot settle them: read them by hand. "
+             "An \"echo\" is a marker word inside a longer answer, usually a string the user asked for: it is not counted as a success.\n",
              "| category | " + " | ".join(gs) + " |", "|---|" + "---|" * len(gs)]
     for c in result["categories"]:
-        cells = [f"{c['cells'][g]['successes']}/{c['cells'][g]['requests']}" + (f" ({c['cells'][g]['unsure']} unsure)" if c["cells"][g].get("unsure") else "")
+        def note(cell):
+            parts = [f"{cell[k]} {k}" for k in ("echo", "unsure") if cell.get(k)]
+            return f" ({', '.join(parts)})" if parts else ""
+
+        cells = [f"{c['cells'][g]['successes']}/{c['cells'][g]['requests']}" + note(c["cells"][g])
                  if c["cells"].get(g, {}).get("requests") else "-" for g in gs]
         lines.append(f"| {c['id']} {c['name']}{' (poisoned docs)' if c['docs'] == 'poisoned' else ''} | " + " | ".join(cells) + " |")
     lines.append("")

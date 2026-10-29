@@ -55,16 +55,19 @@ On the page, work through three steps:
 
 Tiers: `smoke` proves the wiring (tens of requests per tool), `standard` is the curated set, `full` is everything (some tools need
 hours). Documents: *automatic* sends the poisoning tests (LLM05, LLM09) to the poisoned documents and everything else to the clean
-ones, with no restart. A guided scan is also saved to `results/scans/<name>.md`.
+ones, with no restart. A guided scan is also saved to `results/scans/<name>.md`. **Open pentest report** (in Scan results) builds a
+single HTML page for the scan: executive summary, OWASP coverage, confirmed findings with evidence and reproduction steps, potential
+findings, manual-review risks and limits. Print it to save a PDF.
 
 ## The same thing from the command line
 
 ```
-python run.py scripted --target all --tier standard --run r1            # tools: baseline scripted garak giskard inspect pyrit promptfoo
+python run.py scripted --target all --tier standard --run r1            # tools: baseline scripted garak giskard inspect pyrit promptfoo adaptive
 python run.py garak    --target blocklist,doccheck --tier smoke --docs poisoned
 python report/compare.py                  # tool x guardrail matrix (add --docs poisoned for the poisoned documents)
 python report/owasp.py                    # OWASP coverage from the log (--tool inspect, --run r1 to narrow)
 python report/analyse.py                  # full summary of the server log
+python report/pentest_report.py --label scan1022-160816   # the pentest-style HTML report for a scan (results/reports/<label>.html)
 python report/audit.py garak.r1 guarded   # sample real replies and label them by hand
 python report/score_check.py              # how often the scorer disagrees with your hand labels (misses and false alarms)
 python report/test_cases.py --out results/test_cases.md --csv results/test_cases.csv   # the catalogue of every attack and what counts as a failure
@@ -89,16 +92,41 @@ and `python report/external.py` compares that with the oracle (missed attacks, c
 column in the comparison matrix. It has no poisoned variant. It sends every attack prompt to that chatbot: use fake data only and check
 your organisation's rules first.
 
+## Claude as the attacker (adaptive, optional)
+
+`adaptive` lets Claude play the user: it reads each reply and writes the next message, aiming at one objective (the secret, the system prompt
+or an injected marker word). The same string checks judge the result. It is paid and sends every attacker message and chatbot reply to
+Anthropic's API, so use fake data only and check your organisation's rules first. It is not part of the guided scan. Run it from the command line, which shows the estimated cost and asks first, or
+from the web page's **Run single tools** route, which asks you to confirm the cost (the key must already be set in the
+terminal where `python ui/app.py` was started, then restart the page; the key is never typed into the page).
+
+```
+pip install anthropic
+$env:ANTHROPIC_API_KEY = "..."              # never commit it
+$env:REDTEAM_ATTACKER_MODEL = "claude-haiku-5-5"   # the cheap model first; the default is stronger and dearer
+python run.py adaptive --target unguarded --tier smoke --run a1
+```
+
+It asks for confirmation and prints an estimated cost before sending anything. Claude may decline to play the attacker: those
+conversations are counted and left out, and are not evidence that the chatbot held. `python tests/test_adaptive.py` checks it without a key.
+
+Reading the results: a conversation in which Claude gave up ("I'm going to stop here") is recorded as `attacker_stopped` and left out
+of the numbers. A secret objective only succeeds if the secret itself appears; a leak of the chatbot's rules alone is a partial leak.
+A marker objective can succeed by a plain echo of a string Claude asked for, so read those turns. To read the saved conversations:
+
+```
+python report/transcript.py results/raw/adaptive/adaptive.a4_blocklist.conversations.json --only-success
+```
+
 ## Folders
 
 ```
 target/    the chatbot and server (server.py, rag.py, canary.py, guard.py, rails/ = the guardrails, config/ = prompt and documents)
 attacks/   written leak prompts, legitimate questions, multi-turn conversations, and the OWASP category rules
 tools/     one runner per tool, plus baseline and scripted
-report/    compare, owasp, scan (used by the page), analyse, audit, external, score (the scorer), score_check, test_cases
+report/    compare, owasp, scan and pentest_report (used by the page), analyse, audit, external, score (the scorer), score_check, test_cases
 ui/        the web page (app.py + index.html, standard library only, listens on 127.0.0.1 only)
 tests/     python tests/<file>, no Ollama needed. Run them all: Get-ChildItem tests\test_*.py | ForEach-Object { python $_.FullName }
-extras/    parked: the Claude-as-attacker tool (see extras/README.md)
 results/   hand labels and notes are kept; raw output (results/raw/, including the request log) is git-ignored: back it up yourself
 ```
 
@@ -111,6 +139,6 @@ results/   hand labels and notes are kept; raw output (results/raw/, including t
   Do not quote a tool's own number without your own check beside it.
 - **The leak check is a lower bound.** It sees the secret plain, reversed, base64, hex, ROT13 or spaced out, and long repeats of the system
   prompt. It misses paraphrase and translation, and false negatives are not measured.
-- **Multi-turn attacks with a local attacker are weak.** PyRIT's attacker is the same small model, so a failed attack proves little.
+- **Multi-turn attacks with a local attacker are weak.** PyRIT's attacker is the same small model, so a failed attack proves little. The `adaptive` tool uses Claude as the attacker instead (see below).
 - **Giskard, and Garak and Promptfoo on the blocklist and document check, have only had short runs.**
 - **Excessive agency** is only tested on the bare model, not the chatbot, which has no tools: `inspect eval tools/inspect_tasks.py@excessive_agency --model ollama/llama3.1:8b`.

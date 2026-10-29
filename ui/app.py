@@ -23,6 +23,7 @@ login: do not expose it. It uses nothing but the standard library.
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -48,9 +49,11 @@ import analyse  # noqa: E402
 import compare  # noqa: E402
 from docs_mode import MODES, NO_POISON, join_target, split_target  # noqa: E402
 import owasp  # noqa: E402
+import pentest_report  # noqa: E402
 import scan as scanning  # noqa: E402
 
-TOOLS = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo"]
+TOOLS = ["baseline", "scripted", "garak", "giskard", "inspect", "pyrit", "promptfoo", "adaptive"]
+PAID_TOOLS = ["adaptive"]      # bill an external account: the page asks for confirmation and a key first
 TIERS = ["smoke", "standard", "full"]
 KNOWN_GUARDRAILS = [{"id": "unguarded"}, {"id": "guarded"}]  # for a server that predates /health listing them
 # Plain-English names for the page, so they show even when the target is down. Update when a rail is added.
@@ -80,6 +83,7 @@ REQUEST_HINTS = {
     "inspect": {"smoke": 8, "standard": 117, "full": 195},
     "pyrit": {"smoke": 8, "standard": 74, "full": None},
     "promptfoo": {"smoke": 4, "standard": 340, "full": None},
+    "adaptive": {"smoke": 6, "standard": 50, "full": 160},   # at most; every request is billed
 }
 
 
@@ -318,7 +322,8 @@ class App:
         cats = [{"id": c["id"], "name": c["name"], "tools": c.get("tools", []), "manual": c.get("manual"),
                  "docs": c.get("docs", "clean")} for c in self.categories]
         return {"tools": TOOLS, "tiers": TIERS, "hints": REQUEST_HINTS, "categories": cats,
-                "slow_tools": scanning.SLOW_TOOLS, "guardrails": GUARDRAIL_INFO}
+                "slow_tools": scanning.SLOW_TOOLS, "guardrails": GUARDRAIL_INFO, "paid_tools": PAID_TOOLS,
+                "attacker_model": os.environ.get("REDTEAM_ATTACKER_MODEL") or "claude-opus-5-5"}
 
     # ---- jobs ----------------------------------------------------------------------------
     def create_jobs(self, body: dict) -> tuple[dict, int]:
@@ -341,6 +346,13 @@ class App:
         offered = {g["id"] for g in status["guardrails"]}
         if any(split_target(t)[0] not in offered for t in targets):
             return {"error": f"the target offers {sorted(offered)}"}, 400
+        if "adaptive" in tools:
+            if body.get("confirm_paid") is not True:
+                return {"error": "adaptive is a paid tool (it bills your Anthropic account). Confirm in the page, or run it from the command line."}, 400
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                return {"error": "ANTHROPIC_API_KEY is not set where this page runs. Set it in the terminal, then restart python ui/app.py."}, 400
+            if importlib.util.find_spec("anthropic") is None:
+                return {"error": "the anthropic package is not installed. Run: pip install anthropic"}, 400
         if body.get("docs") == "poisoned":   # single tools: poisoned only when asked for (clean is the default)
             targets = [join_target(split_target(t)[0], "poisoned") for t in targets]
 
@@ -443,6 +455,19 @@ class App:
         progress = {st: sum(j["status"] == st for j in jobs) for st in ("queued", "running", "done", "failed", "cancelled")}
         return {"scan": scan, "result": result, "markdown": markdown, "saved": str(saved), "progress": progress}, 200
 
+    def scan_html(self, label: str) -> tuple[str | None, int]:
+        """The pentest-style HTML report for one scan (also saved next to the markdown, under results/reports)."""
+        scan = next((s for s in self._read_scans() if s["label"] == label), None)
+        if scan is None:
+            return None, 404
+        rows = [r for r in analyse.load_log(self.log_path) if not r.get("stub")]
+        data = pentest_report.collect(rows, self.categories, label, scan["categories"], scan["guardrails"], scan.get("docs", "auto"))
+        page = pentest_report.render(data)
+        folder = self.scans_dir.parent / "reports"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f"{label}.html").write_text(page, encoding="utf-8")
+        return page, 200
+
     # ---- reports -------------------------------------------------------------------------
     def report(self, kind: str, include_stub: bool, docs: str = "clean") -> str:
         script = {"summary": "analyse.py", "compare": "compare.py"}[kind]
@@ -508,6 +533,11 @@ def make_handler(app: App):
                 self._json(app.queue.snapshot())
             elif url.path == "/api/scans":
                 self._json(app.scans())
+            elif (m := re.fullmatch(r"/report/([A-Za-z0-9_-]{1,40})\.html", url.path)):
+                page, code = app.scan_html(m.group(1))
+                if page is None:
+                    return self._json({"error": "no scan with that label"}, code)
+                self._send(code, page.encode("utf-8"), "text/html; charset=utf-8")
             elif (m := re.fullmatch(r"/api/scans/([A-Za-z0-9_-]{1,40})", url.path)):
                 data, code = app.scan_report(m.group(1))
                 self._json(data, code)

@@ -104,6 +104,7 @@
   .routes { margin-top: 12px; }
 
   .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 16px; border: 2px solid transparent; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; background: transparent; color: var(--ink); }
+  a.btn { text-decoration: none; }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
   .btn.secondary { background: var(--panel); border-color: var(--accent); color: var(--accent); }
@@ -387,6 +388,7 @@
         <div class="actions" style="margin-top:8px">
           <div><label class="flabel" for="scanPick">Scan</label><select id="scanPick"><option value="">No scans yet</option></select></div>
           <button type="button" class="btn ghost" id="scanCopy" disabled>Copy as markdown</button>
+          <a class="btn ghost" id="scanReport" href="#" target="_blank" rel="noopener" hidden>Open pentest report</a>
           <span id="scanCopied" class="muted" role="status"></span>
         </div>
         <p class="help" id="scanProgress"></p>
@@ -472,9 +474,10 @@ const TOOL_INFO = {
   giskard: "Giskard, an open-source scanner. Runs leak and incorrect-answer scenarios and grades the replies using the local model.",
   inspect: "Inspect AI, an open-source evaluation framework. Runs written tasks such as prompt injection, role-play attacks and secret extraction.",
   pyrit: "PyRIT, an open-source attack toolkit. Disguises requests, for example by encoding them, and runs multi-message attacks. Uses its own Python environment.",
+  adaptive: "Claude as the attacker. It reads each reply and writes the next message, aiming at the secret, the system prompt or a marker word. Paid: it bills your Anthropic account and needs ANTHROPIC_API_KEY. Fake data only.",
   promptfoo: "Promptfoo, an open-source test runner. Generates attack test cases for many weaknesses, then grades the replies using the local model.",
 };
-const TOOL_NAMES = {garak: "Garak", giskard: "Giskard", pyrit: "PyRIT", promptfoo: "Promptfoo", inspect: "Inspect AI"};
+const TOOL_NAMES = {garak: "Garak", giskard: "Giskard", pyrit: "PyRIT", promptfoo: "Promptfoo", adaptive: "Claude attacker", inspect: "Inspect AI"};
 const STATUS_TEXT = {queued: "Waiting", running: "Running", done: "Done", failed: "Failed", cancelled: "Cancelled", interrupted: "Interrupted"};
 const STATUS_KIND = {queued: "neutral", running: "warn", done: "good", failed: "bad", cancelled: "neutral", interrupted: "bad"};
 const LABEL_OK = /^[A-Za-z0-9_-]{1,40}$/;
@@ -670,6 +673,7 @@ function buildTools() {
   options.tools.forEach((t) => {
     const chips = [chip("about", "tool", {"data-tool": t})];
     if (options.slow_tools.includes(t)) chips.push(chip("slow", "tool slow"));
+    if ((options.paid_tools || []).includes(t)) chips.push(chip("paid", "warn"));
     box.append(choiceCard({type: "checkbox", name: "tool", value: t, title: t, desc: TOOL_INFO[t] || "", chips}));
   });
 }
@@ -758,7 +762,7 @@ function scanGrid(r) {
     r.guardrails.forEach((g) => {
       const v = c.cells[g] || {requests: 0, successes: 0};
       const td = el("td", null, v.requests ? (v.successes ? "hit" : "safe") : "none");
-      const word = !v.requests ? "not run" : (v.successes ? "worked" : "held") + (v.unsure ? ", " + v.unsure + " unsure" : "");
+      const word = !v.requests ? "not run" : (v.successes ? "worked" : "held") + (v.echo ? ", " + v.echo + " echo" : "") + (v.unsure ? ", " + v.unsure + " unsure" : "");
       td.append(el("span", v.requests ? v.successes + "/" + v.requests : "-", "val"), el("span", word, "word"));
       tr.append(td);
     });
@@ -770,6 +774,7 @@ async function loadScan() {
   if (!scanLabel) return;
   const d = await api("/api/scans/" + encodeURIComponent(scanLabel)).catch(() => null); if (!d) return;
   scanMarkdown = d.markdown; $("scanCopy").disabled = false;
+  $("scanReport").href = "/report/" + encodeURIComponent(scanLabel) + ".html"; $("scanReport").hidden = false;
   const p = d.progress, busy = p.queued + p.running;
   scanBusy = busy > 0;
   const jobCount = p.queued + p.running + p.done + p.failed + p.cancelled;
@@ -788,7 +793,7 @@ async function loadScan() {
   [["hit", "Attack succeeded at least once"], ["safe", "Tested and withstood"], ["none", "No matching requests yet"]].forEach(([k, txt]) => {
     const s = el("span", null, "sw"); s.append(el("i", null, k), document.createTextNode(txt)); leg.append(s);
   });
-  box.append(leg, el("p", "The counts are taken from the log. They are not attack success rates. \"Unsure\" replies look suspicious (part of the secret, a quoted poisoned note or an empty reply) but the checks cannot settle them. Review those manually.", "help"));
+  box.append(leg, el("p", "The counts are taken from the log. They are not attack success rates. \"Unsure\" replies look suspicious (part of the secret, a quoted poisoned note or an empty reply) but the checks cannot settle them. Review those manually. An \"echo\" is a marker word inside a longer answer, usually a string the user asked for: it is not counted as a success.", "help"));
   const shown = r.categories.map((c) => c.id);
   if (shown.includes("LLM05") && shown.includes("LLM09")) box.append(el("p", "LLM05 and LLM09 share one test (the poisoned document), so their rows are identical.", "help"));
   if (r.categories.some((c) => c.docs === "poisoned")) box.append(el("p", "Poisoned-document rows count only requests that reached the document lookup. A guardrail that stops a request earlier (such as the blocklist) shows fewer requests.", "help"));
@@ -882,8 +887,14 @@ async function runTools() {
   if (!tools.length) return messageWith("message", "Not started: select at least one tool.", [], true);
   if (!guards.length) return messageWith("message", "Not started: select at least one guardrail in step 1.", [], true);
   if (target.stub && !confirm("The test chatbot is in test mode, so these results would not be real. Run anyway?")) return;
+  const tier = radioValue("tier", "smoke"), paid = tools.filter((t) => (options.paid_tools || []).includes(t));
+  if (paid.length) {
+    const calls = (options.hints.adaptive || {})[tier], jobs = guards.length;
+    const size = calls ? "up to " + fmt(calls * jobs) + " requests in total" : "a large number of requests";
+    if (!confirm("The Claude attacker is a paid tool. It sends every attacker message and chatbot reply to Anthropic and bills your account: " + size + " with the model " + options.attacker_model + ". Use fake data only. Continue?")) return;
+  }
   try {
-    const r = await api("/api/jobs", {tools, guardrails: guards, tier: radioValue("tier", "smoke"), label: $("runLabel").value, docs: radioValue("docs", "auto")});
+    const r = await api("/api/jobs", {tools, guardrails: guards, tier, label: $("runLabel").value, docs: radioValue("docs", "auto"), confirm_paid: paid.length > 0});
     await refresh();
     messageWith("message", "Added " + plural(r.created.length, "job") + " to the Queue with label " + r.label + "." + (r.skipped.length ? " Skipped: " + r.skipped.join("; ") : ""),
       [["Go to the Queue", "queue"], ["Go to Log reports", "reports"]], false);

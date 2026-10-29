@@ -11,6 +11,7 @@ import json
 import sys
 import tempfile
 import time
+import os
 import urllib.error
 import urllib.request
 from html.parser import HTMLParser
@@ -137,6 +138,20 @@ def main() -> int:
         results.append(check("the log route returns the output", "attempted 7" in logbody["text"]))
         code, body = call(url, "/api/jobs", {"tools": ["baseline"], "guardrails": ["unguarded"], "tier": "smoke", "label": "used"})
         results.append(check("a label that was already run is skipped", code == 200 and body["created"] == [] and "already run" in body["skipped"][0]))
+        adaptive = {"tools": ["adaptive"], "guardrails": ["unguarded"], "tier": "smoke", "label": "ad1"}
+        saved_key = os.environ.pop("ANTHROPIC_API_KEY", None)
+        code, body = call(url, "/api/jobs", adaptive)
+        results.append(check("the paid adaptive tool is refused without the page's confirmation", code == 400 and "paid" in body["error"]))
+        code, body = call(url, "/api/jobs", dict(adaptive, confirm_paid=True))
+        results.append(check("the paid adaptive tool is refused when no key is set", code == 400 and "ANTHROPIC_API_KEY" in body["error"]))
+        os.environ["ANTHROPIC_API_KEY"] = "test-key"
+        code, body = call(url, "/api/jobs", dict(adaptive, confirm_paid=True))
+        results.append(check("with confirmation and a key the adaptive job is queued", code == 200 and body["created"] and body["created"][0]["tool"] == "adaptive"))
+        code, opts = call(url, "/api/options")
+        results.append(check("the options name the paid tool and the attacker model", opts["paid_tools"] == ["adaptive"] and opts["attacker_model"].startswith("claude-")))
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+        if saved_key:
+            os.environ["ANTHROPIC_API_KEY"] = saved_key
         results.append(check("an unknown tool is refused", call(url, "/api/jobs", {"tools": ["rm"], "guardrails": ["unguarded"], "tier": "smoke"})[0] == 400))
         results.append(check("a guardrail the target does not offer is refused", call(url, "/api/jobs", {"tools": ["baseline"], "guardrails": ["nope"], "tier": "smoke"})[0] == 400))
         results.append(check("a label with spaces or symbols is refused", call(url, "/api/jobs", {"tools": ["baseline"], "guardrails": ["unguarded"], "tier": "smoke", "label": "a b;c"})[0] == 400))

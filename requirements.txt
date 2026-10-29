@@ -2,6 +2,7 @@
 # Python 3.12 (Giskard 3 needs 3.12 or newer; NeMo Guardrails and PyRIT need 3.13 or older).
 # PyRIT is NOT here: it needs a newer `datasets` than Garak allows. See requirements-pyrit.txt.
 # Versions are the ones the plumbing was tested with.
+# Optional, only for the adaptive tool (Claude as the attacker): pip install anthropic
 garak==0.17.0
 giskard==3.0.1
 nemoguardrails==0.24.1
