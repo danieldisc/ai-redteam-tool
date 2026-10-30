@@ -24,6 +24,17 @@ and compares what each tool finds. This is a proof of concept. It is not connect
   whether the attack *worked*, *held* or is *unsure* (with the detector and reason). Every tool also gives its own verdict, but those have
   proved unreliable, so the reports always show both side by side.
 
+## Documentation
+
+| Guide | For |
+|---|---|
+| [Installation Guide](docs/INSTALLATION.md) | setting it up on Windows, and checking the installation |
+| [User Guide](docs/USER_GUIDE.md) | running scans, reading results, the pentest report, attacking another chatbot |
+| [Test Case Guide](docs/TEST_CASE_GUIDE.md) | what is tested, how each reply is judged, how to write a case |
+| [Developer Guide](docs/DEVELOPER_GUIDE.md) | extending it: cases, categories, guardrails, tools, tests |
+| [Architecture Document](docs/ARCHITECTURE.md) | how it fits together and why |
+| [Benchmark and Accuracy Report](docs/BENCHMARK_REPORT.md) | what the results show, and what was not measured |
+
 ## Quick start
 
 Set up once (two Python 3.12 environments, because PyRIT and Garak need different packages; also install [Ollama](https://ollama.com)
@@ -90,7 +101,7 @@ secrets planted in that chatbot, so the leak check can judge its replies whateve
 guardrail decision (`{"guardrail": {"verdict": "blocked" or "passed", ...}}` in the body, or `X-Guardrail-Verdict` headers), it is logged,
 and `python report/external.py` compares that with the oracle (missed attacks, contradictions, false blocks). `relay` is one more
 column in the comparison matrix. It has no poisoned variant. It sends every attack prompt to that chatbot: use fake data only and check
-your organisation's rules first.
+your organisation's rules first. The scan grid, the saved scan files and the report page mask this project's own secret only: for another chatbot's secret use `python report/pentest_report.py --label <label> --secret <planted secret>`, and do not commit its scan files unchecked (see the User Guide).
 
 ## The test library
 
