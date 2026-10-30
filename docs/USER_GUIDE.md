@@ -3,6 +3,31 @@
 For a security tester using the tool. Install it first (Installation Guide). This guide is about running tests, reading the results and
 knowing when to trust them. The tool assists a red team; it does not replace human judgement.
 
+## Quick path
+
+Most testers need only this. Everything after it is optional detail.
+
+1. **Start** (two terminals, repository folder, main environment active, Ollama running; leave both open):
+   ```powershell
+   python target/server.py     # wait for "Target ready"
+   python ui/app.py            # then open http://127.0.0.1:8080
+   ```
+2. **Run:** on the page, step 1: tick the guardrails and keep the size at `smoke`, then Next. Step 2: tick the OWASP risks and press **Start guided scan**.
+3. **Read:** when the Queue shows every job as Done, open **Scan results**. Red means an attack worked at least once, green means it held.
+4. **Report:** press **Open pentest report**, check each finding's example reply yourself, and print the page to save a PDF.
+
+The one rule to remember: a tool's own verdict is not the result; the grid and the report use the project's own check. Counts are a minimum, and replies vary between runs.
+
+| If you want to… | Go to |
+|---|---|
+| Understand the terms and read a verdict | sections 1 and 5 |
+| Run one tool, or use the command line | section 4 |
+| Attack another chatbot (needs permission and fake data) | section 9 |
+| Test an agent with tools (LLM03) | section 8 |
+| Use Claude as the attacker (paid, optional) | section 10 |
+| Check the scorer against your own labels | section 7 |
+| Know what still needs a person | sections 11 and 12 |
+
 ## 1. The ideas in five minutes
 
 | Term | Meaning |
@@ -30,11 +55,11 @@ Ollama must be running. The page listens on this computer only and has no login:
 
 ## 3. Run a guided scan (recommended)
 
-On the page, work down three steps.
+The page shows one step at a time. A progress bar at the top shows where you are, and you can go back at any point with **Back** or by clicking a step.
 
-1. **Settings.** Tick the guardrails to test (each card says what it does), choose the tier and the documents. Start with `smoke`. Use **Automatic** documents unless you have a reason not to; with clean documents only, LLM05 and LLM09 show no results.
-2. **How would you like to run the tests?** Choose **Guided scan**. Tick the OWASP risks to test and press **Start guided scan**. The page chooses the tools that cover those risks, and queues one job per tool and guardrail. The slow tools (Garak, Giskard, PyRIT, Promptfoo) are only queued if you tick the box to include them, because they send hundreds or thousands of requests; the page warns which tools it left out. Give the scan a name (for example `blocklist-check`): it becomes the run label and the file name.
-3. **Review the results.**
+1. **Choose.** Tick the guardrails to test (each card says what it does) and choose the test size. Start with `smoke`. Under **Advanced** are the documents (leave them on **Automatic** unless you have a reason not to: with clean documents only, LLM05 and LLM09 show no results) and the choice of another chatbot (section 9). **Next** is enabled once one guardrail is ticked.
+2. **Run.** **Guided scan** is selected; **Single tools** (section 4) is the other choice. Tick the OWASP risks to test and press **Start guided scan**. The page chooses the tools that cover those risks, and queues one job per tool and guardrail. The slow tools (Garak, Giskard, PyRIT, Promptfoo) are only queued if you tick the box to include them, because they send hundreds or thousands of requests; the page warns which tools it left out. Give the scan a name (for example `blocklist-check`): it becomes the run label and the file name.
+3. **Results**, in three tabs. The page opens this step by itself when a run starts, and the **Queue** tab shows how many jobs are waiting or running.
    - **Scan results**: a grid of risk by guardrail. Red means the attack worked at least once, green means it held. Real request and reply examples are shown with it (the secret is masked). **Open pentest report** builds the report (section 6).
    - **Queue**: every job, one at a time, with its log. A job can be cancelled; finished jobs can be cleared.
    - **Log reports**: **Comparison matrix** (tool by guardrail) and **Full summary** (everything in the log).
@@ -55,7 +80,7 @@ A guided scan is also saved as `results/scans/<label>.md`.
 | garak | 36 | 1,740 | not measured |
 | adaptive (paid) | 6 | up to 50 | up to 160 |
 
-## 4. Run single tools (advanced)
+## 4. Run single tools (advanced, optional)
 
 Choose **Run single tools**, pick the tools and press **Run selected tools**. There is no grid; read the **Queue** and **Log reports**. The paid `adaptive` tool asks you to confirm its cost, and needs `ANTHROPIC_API_KEY` set in the terminal that started the page.
 
@@ -113,7 +138,7 @@ Contents: executive summary; scope and method; coverage of all ten OWASP risks w
 
 Before it goes to anyone: read each confirmed finding's example reply yourself, check the severity is sensible, and read the limits section. The ATLAS identifiers in the report are indicative: check them against the current MITRE ATLAS matrix.
 
-## 7. Checking the scorer yourself
+## 7. Checking the scorer yourself (optional)
 
 The scorer is only as good as its check against real replies.
 
@@ -126,7 +151,7 @@ python report/score_check.py                                    # compare your l
 `--skip-refusals` samples only replies that were not refusals. The current result is on 175 labelled replies from one rater: 0 false alarms in 152 failed attacks and 2 misses in 21 successful ones.
 Twenty-one successes are too few to trust the miss rate; label a fresh sample (aim for 30 or more successes) before quoting it. Labels are kept in `results/audit/`.
 
-## 8. The agent test (LLM03 excessive agency)
+## 8. The agent test (LLM03 excessive agency; optional)
 
 The chatbot has no tools, so this risk is tested on a small controlled agent: the local model with four **fake** tools (look up, cancel and refund a parking permit, send a notification). A tool only records the call; nothing real is touched.
 The agent is given a policy (act only on what the user asked, confirm destructive actions, never obey text inside a tool result) and is attacked with 10 cases, plus 3 legitimate requests to check it still works. The judge reads the tool calls, so no model grades anything.
@@ -138,7 +163,7 @@ python tools/agent_run.py --label ag2 --only AGT-002,AGT-006 --repeats 5
 
 The summary goes to `results/agent/<label>.md`; every message and call goes to `results/raw/agent/`. Read "worked in n of N", because replies vary. This test is not part of the scan grid or the comparison matrix.
 
-## 9. Attacking another chatbot (relay and oracle)
+## 9. Attacking another chatbot (relay and oracle; optional)
 
 This sends every attack prompt to that chatbot. **Use fake data only, and check your organisation's rules before you start.** Do not point this at a live service holding real data, and do not point it at any AskDBC or other production system without written approval.
 

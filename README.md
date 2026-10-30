@@ -4,6 +4,45 @@ An internship project for LTA's Cyber Architecture & Development (CYAD) division
 with five open-source red-teaming tools (Garak, Giskard, Inspect AI, PyRIT, Promptfoo), with and without different guardrails,
 and compares what each tool finds. This is a proof of concept. It is not connected to AskDBC or any real LTA document.
 
+## In short
+
+**Use it** (after the one-time setup in the [Installation Guide](docs/INSTALLATION.md)):
+
+1. Start the chatbot and the web page, each in its own terminal, and leave both open:
+   ```
+   python target/server.py     # wait for "Target ready"
+   python ui/app.py            # then open http://127.0.0.1:8080
+   ```
+2. On the page, step 1: tick the guardrails to test. Step 2: tick the OWASP risks and press **Start guided scan** (start with the `smoke` size).
+3. When the jobs finish, read the grid under **Scan results**, then press **Open pentest report** (print it to save a PDF).
+
+That is all most users ever do. Everything else (single tools, the command line, attacking another chatbot) is optional and described in the [User Guide](docs/USER_GUIDE.md).
+You do not need to read or change any code to use the tool.
+
+**What to open:**
+
+| I want to… | Open |
+|---|---|
+| Install it | `docs/INSTALLATION.md` |
+| Run a test and read the results | `docs/USER_GUIDE.md` (the "Quick path" at the top) |
+| Know what is tested and how a reply is judged | `docs/TEST_CASE_GUIDE.md` |
+| See the evidence and findings | `docs/BENCHMARK_REPORT.md`, then `results/` |
+| Understand the design | `docs/ARCHITECTURE.md` |
+| Add a test case, guardrail or tool | `docs/DEVELOPER_GUIDE.md`, then `attacks/` (cases are data files) |
+
+Folders you can ignore as a user: `target/`, `tools/`, `report/`, `ui/` and `tests/` are the machinery. `attacks/` holds the test cases, and `results/` holds the evidence the reports are built from.
+
+## Documentation
+
+| Guide | For |
+|---|---|
+| [Installation Guide](docs/INSTALLATION.md) | setting it up on Windows, and checking the installation |
+| [User Guide](docs/USER_GUIDE.md) | running scans, reading results, the pentest report, attacking another chatbot |
+| [Test Case Guide](docs/TEST_CASE_GUIDE.md) | what is tested, how each reply is judged, how to write a case |
+| [Developer Guide](docs/DEVELOPER_GUIDE.md) | extending it: cases, categories, guardrails, tools, tests |
+| [Architecture Document](docs/ARCHITECTURE.md) | how it fits together and why |
+| [Benchmark and Accuracy Report](docs/BENCHMARK_REPORT.md) | what the results show, and what was not measured |
+
 ## How it works
 
 ```
@@ -24,17 +63,6 @@ and compares what each tool finds. This is a proof of concept. It is not connect
   whether the attack *worked*, *held* or is *unsure* (with the detector and reason). Every tool also gives its own verdict, but those have
   proved unreliable, so the reports always show both side by side.
 
-## Documentation
-
-| Guide | For |
-|---|---|
-| [Installation Guide](docs/INSTALLATION.md) | setting it up on Windows, and checking the installation |
-| [User Guide](docs/USER_GUIDE.md) | running scans, reading results, the pentest report, attacking another chatbot |
-| [Test Case Guide](docs/TEST_CASE_GUIDE.md) | what is tested, how each reply is judged, how to write a case |
-| [Developer Guide](docs/DEVELOPER_GUIDE.md) | extending it: cases, categories, guardrails, tools, tests |
-| [Architecture Document](docs/ARCHITECTURE.md) | how it fits together and why |
-| [Benchmark and Accuracy Report](docs/BENCHMARK_REPORT.md) | what the results show, and what was not measured |
-
 ## Quick start
 
 Set up once (two Python 3.12 environments, because PyRIT and Garak need different packages; also install [Ollama](https://ollama.com)
@@ -43,7 +71,7 @@ with `ollama pull llama3.1:8b`, and Node.js 20+ for Promptfoo):
 ```
 py -3.12 -m venv venv
 .\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements-lock.txt     # exact versions; requirements.txt can take very long to resolve
 
 py -3.12 -m venv venv-pyrit
 .\venv-pyrit\Scripts\python -m pip install -r requirements-pyrit.txt
@@ -56,12 +84,12 @@ python target/server.py     # terminal 1: the chatbot. Wait for "Target ready".
 python ui/app.py            # terminal 2: the web page, then open http://127.0.0.1:8080
 ```
 
-On the page, work through three steps:
+The page shows one step at a time, with a progress bar at the top and Back and Next buttons:
 
-1. **Settings:** tick the guardrails to test (each card explains what it does), pick the tier and the documents.
-2. **How do you want to run?** Choose **Guided scan** (recommended): tick the OWASP risks to test and press *Start guided scan*. The page
-   picks the tools. Or choose **Run single tools** (advanced) to pick tools yourself, for example a quick Garak check.
-3. **Read the results:** the scan grid (red = the attack worked at least once, green = it held, with real example replies, secret
+1. **Choose:** tick the guardrails to test (each card explains what it does) and pick the test size. Documents and another chatbot are under *Advanced*.
+2. **Run:** **Guided scan** (recommended): tick the OWASP risks to test and press *Start guided scan*. The page
+   picks the tools. Or switch to **Single tools** (advanced) to pick tools yourself, for example a quick Garak check.
+3. **Results**, in three tabs: the scan grid (red = the attack worked at least once, green = it held, with real example replies, secret
    masked), the Queue (every job, one at a time, with logs), and Log reports (comparison matrix and full summary).
 
 Tiers: `smoke` proves the wiring (tens of requests per tool), `standard` is the curated set, `full` is everything (some tools need

@@ -16,12 +16,12 @@
     --neutral-soft: #eef1f5;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --ink-2: #3d4c5e; --line-strong: #7d8da1; --accent-strong: #173d6e;
-    --shadow: 0 1px 2px rgba(20, 32, 46, .05);
+    --shadow: 0 1px 2px rgba(20, 32, 46, .05), 0 8px 24px rgba(20, 32, 46, .04);
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
-  html { scroll-padding-top: 16px; }
+  html { scroll-padding-top: 104px; }
   @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
   body { min-height: 100vh; display: flex; flex-direction: column; font-size: 15px; line-height: 1.5; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
@@ -29,35 +29,69 @@
   .skip { position: absolute; left: 16px; top: -48px; background: var(--accent); color: #fff; padding: 8px 16px; border-radius: 8px; z-index: 10; }
   .skip:focus { top: 8px; }
 
-  header.top { background: var(--panel); border-bottom: 1px solid var(--line); padding: 16px 24px; }
-  .top-inner { max-width: 1400px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
-  .top h1 { margin: 0; font-size: 22px; line-height: 1.25; font-weight: 700; }
-  .top .sub { margin: 4px 0 0; font-size: 13px; color: var(--muted); max-width: 70ch; }
+  header.top { background: var(--panel); padding: 16px 24px 14px; }
+  .top-inner { max-width: 960px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+  .brand { display: flex; gap: 14px; align-items: center; }
+  .mark { width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), #7a1f2b); color: #fff; font-weight: 800; font-size: 15px; letter-spacing: .02em; display: grid; place-items: center; flex: none; }
+  .top h1 { margin: 0; font-size: 21px; line-height: 1.25; font-weight: 700; }
+  .top .sub { margin: 2px 0 0; font-size: 13px; color: var(--muted); max-width: 70ch; }
   .banner { font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: var(--neutral-soft); color: var(--muted); overflow-wrap: anywhere; }
   .banner.ok { background: var(--good-soft); color: var(--good); }
   .banner.bad { background: var(--bad-soft); color: var(--bad); }
   .banner.warn { background: var(--warn-soft); color: var(--warn); }
 
-  .layout { flex: 1; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; padding: 24px; max-width: 1400px; width: 100%; margin: 0 auto; }
-  nav { display: flex; flex-direction: column; gap: 8px; position: sticky; top: 16px; align-self: start; }
-  .nav-title { margin: 0 0 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-  nav a { display: block; text-decoration: none; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 14px; font-weight: 600; }
-  nav a:hover { border-color: var(--accent); color: var(--accent); }
-  nav a small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
-  nav a.sub { margin-left: 16px; }
-  main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .stepper-wrap { position: sticky; top: 0; z-index: 5; background: rgba(255, 255, 255, .94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .stepper { list-style: none; margin: 0 auto; padding: 12px 24px; max-width: 760px; display: flex; align-items: center; }
+  .stepper .conn { flex: 1 1 24px; height: 3px; border-radius: 2px; background: var(--line); margin: 0 10px; transition: background .3s; }
+  .stepper .conn.done { background: var(--accent); }
+  .stbtn { display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 4px 6px; border-radius: 10px; font: inherit; color: var(--muted); cursor: pointer; text-align: left; }
+  .stbtn:hover { color: var(--ink); }
+  .stnum { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--panel); display: grid; place-items: center; font-weight: 700; font-size: 14px; color: var(--ink-2); flex: none; transition: background .2s, border-color .2s, box-shadow .2s; }
+  .sttext b { display: block; font-size: 14px; line-height: 1.2; color: inherit; }
+  .sttext small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+  .stbtn.current { color: var(--ink); }
+  .stbtn.current .stnum { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 0 4px var(--accent-soft); }
+  .stbtn.done .stnum { background: var(--good); border-color: var(--good); color: #fff; font-size: 0; }
+  .stbtn.done .stnum::after { content: "\2713"; font-size: 16px; }
 
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; box-shadow: var(--shadow); min-width: 0; scroll-margin-top: 16px; }
+  main { flex: 1; width: 100%; max-width: 960px; margin: 0 auto; padding: 28px 24px 40px; display: flex; flex-direction: column; gap: 16px; min-width: 0; outline: none; }
+  .panel { display: flex; flex-direction: column; gap: 20px; scroll-margin-top: 80px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .panel:not([hidden]) { animation: rise .28s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  }
+  .stephead .eyebrow { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  .stephead h2 { margin: 0; font-size: 26px; line-height: 1.2; letter-spacing: -.01em; outline: none; }
+  .stephead .lead { margin: 6px 0 0; font-size: 15px; color: var(--muted); max-width: 64ch; }
+  .navbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 4px; }
+  .navbar .navhint { flex: 1 1 200px; font-size: 13px; color: var(--muted); }
+  .navbar .spacer { flex: 1; }
+  .navbar .btn.primary { min-height: 46px; padding: 10px 22px; font-size: 15px; }
+  .seg { display: inline-flex; background: var(--neutral-soft); padding: 4px; border-radius: 12px; gap: 4px; border: 1px solid var(--line); }
+  .segopt { position: relative; display: block; }
+  .segopt input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .segopt span { display: block; padding: 8px 18px; border-radius: 9px; font-weight: 700; font-size: 14px; color: var(--ink-2); }
+  .segopt input:checked + span { background: var(--panel); color: var(--accent); box-shadow: 0 1px 3px rgba(20, 32, 46, .14); }
+  .segopt input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .tab { background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; padding: 10px 16px; font: inherit; font-weight: 700; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .tab:hover { color: var(--ink); }
+  .tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+  .pill { display: inline-block; min-width: 20px; padding: 0 7px; margin-left: 6px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); font-size: 12px; text-align: center; }
+  details.adv { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); }
+  details.adv > summary { font-size: 14px; font-weight: 700; color: var(--accent); }
+  details.adv[open] > summary { margin-bottom: 16px; }
+  .tight { margin-top: 0; }
+  .segopt em.chip { font-style: normal; margin-left: 6px; }
+  .segopt input:checked + span em.chip.adv { background: var(--panel); }
+  .card.rec { border-top: 3px solid var(--accent); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 28px; box-shadow: var(--shadow); min-width: 0; scroll-margin-top: 16px; }
   .card.rec { border-top: 3px solid var(--accent); }
   .card h3 { margin: 0; font-size: 16px; font-weight: 700; }
   .card-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 4px; }
   .card-head .grow { flex: 1; }
   .card .caption { margin: 4px 0 16px; font-size: 13px; line-height: 1.45; color: var(--muted); }
-  .step { display: grid; grid-template-columns: 28px 1fr; gap: 4px 12px; align-items: start; margin-top: 8px; scroll-margin-top: 16px; }
-  .step .num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px; display: grid; place-items: center; }
-  .step h2 { margin: 0; font-size: 18px; line-height: 28px; font-weight: 700; scroll-margin-top: 16px; }
-  .step p { grid-column: 2; margin: 0; font-size: 13px; color: var(--muted); }
-  section.block { display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 16px; }
 
   fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   legend { font-size: 14px; font-weight: 700; padding: 0; margin-bottom: 4px; float: left; width: 100%; }
@@ -181,16 +215,14 @@
   pre { background: var(--neutral-soft); border: 1px solid var(--line); padding: 12px; border-radius: 8px; overflow: auto; max-height: 420px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0 0; font: 13px/1.45 var(--mono); }
   footer { padding: 16px 24px 24px; font-size: 13px; color: var(--muted); text-align: center; }
 
-  @media (max-width: 980px) {
-    .layout { grid-template-columns: minmax(0, 1fr); }
-    nav { position: static; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
-    .nav-title { width: 100%; margin: 0; }
-    nav a small { display: none; }
-    nav a.sub { margin-left: 0; }
-  }
   @media (max-width: 700px) {
-    header.top, .layout { padding: 16px; }
-    .card { padding: 16px; }
+    header.top { padding: 14px 16px 12px; }
+    main { padding: 20px 16px 32px; }
+    .card { padding: 18px; }
+    .stepper { padding: 10px 12px; }
+    .sttext small { display: none; }
+    .stephead h2 { font-size: 22px; }
+    .navbar .btn { flex: 1; }
     .choices, .cols-2, .cols-3, .auto { grid-template-columns: minmax(0, 1fr); }
     .plan dl, dl.meta { grid-template-columns: minmax(0, 1fr); }
     .btn { min-height: 44px; }
@@ -210,40 +242,68 @@
 </style>
 </head>
 <body>
-<a class="skip" href="#settings">Skip to the steps</a>
+<a class="skip" href="#main">Skip to the steps</a>
 <header class="top">
   <div class="top-inner">
-    <div>
-      <h1>Red team bench</h1>
-      <p class="sub">Test a chatbot against attacks using five open-source security tools, then review which attacks succeeded. Complete steps 1 to 3 in order.</p>
+    <div class="brand">
+      <span class="mark" aria-hidden="true">RT</span>
+      <div>
+        <h1>LTA AI Red Teaming Tool (Daniel)</h1>
+        <p class="sub">Attack a chatbot with open-source security tools, then review which attacks worked.</p>
+      </div>
     </div>
     <span id="banner" class="banner" role="status">Checking the test chatbot…</span>
   </div>
 </header>
 
-<div class="layout">
-  <aside>
-    <nav aria-label="Sections">
-      <p class="nav-title">On this page</p>
-      <a href="#settings">1. Settings<small>applies to every run</small></a>
-      <a href="#run">2. Run<small>guided scan or single tools</small></a>
-      <a href="#results">3. Results<small>results, queue, reports</small></a>
-      <a class="sub" href="#scan-results">Scan results<small>results and evidence</small></a>
-      <a class="sub" href="#queue">Queue<small>every job and its output</small></a>
-      <a class="sub" href="#reports">Log reports<small>comparison and summary</small></a>
-    </nav>
-  </aside>
+<div class="stepper-wrap">
+  <nav aria-label="Steps">
+    <ol class="stepper">
+      <li><button type="button" class="stbtn current" id="st1" data-go="1" aria-current="step"><span class="stnum">1</span><span class="sttext"><b>Choose</b><small>protections and size</small></span></button></li>
+      <li class="conn" id="cn1" aria-hidden="true"></li>
+      <li><button type="button" class="stbtn" id="st2" data-go="2"><span class="stnum">2</span><span class="sttext"><b>Run</b><small>pick tests and start</small></span></button></li>
+      <li class="conn" id="cn2" aria-hidden="true"></li>
+      <li><button type="button" class="stbtn" id="st3" data-go="3"><span class="stnum">3</span><span class="sttext"><b>Results</b><small>grid, queue, reports</small></span></button></li>
+    </ol>
+  </nav>
+</div>
 
-  <main>
-    <div id="alert" class="callout" role="status" hidden><span class="grow"><strong id="alertLead"></strong><span id="alertBody"></span></span></div>
+<main id="main" tabindex="-1">
+  <div id="alert" class="callout" role="status" hidden><span class="grow"><strong id="alertLead"></strong><span id="alertBody"></span></span></div>
 
-    <section id="settings" class="block" aria-labelledby="settings-h">
-      <div class="step"><span class="num" aria-hidden="true">1</span><h2 id="settings-h">Settings</h2>
-        <p>Choose these settings once. They apply to both ways of running and to every job in the Queue.</p></div>
-      <div class="card">
+  <!-- ===== Step 1 ===== -->
+  <section id="settings" class="panel" data-step="1" aria-labelledby="settings-h">
+    <header class="stephead">
+      <p class="eyebrow">Step 1 of 3</p>
+      <h2 id="settings-h" tabindex="-1">Choose what to test</h2>
+      <p class="lead">Pick the protections to test and how much to run. The defaults suit a first run.</p>
+    </header>
+    <div class="card">
+      <fieldset class="field" id="guardrails">
+        <legend>Guardrails: the protections to test</legend>
+        <div class="field-top">
+          <p class="help">A guardrail is a safety layer around the chatbot. Each test runs once per guardrail you tick, so they can be compared. If unsure, tick all.</p>
+          <div class="btnrow"><button type="button" class="btn ghost sm" id="gAll">Select all</button><button type="button" class="btn ghost sm" id="gNone">Clear</button></div>
+        </div>
+        <div class="choices cols-2" id="guardrailCards"></div>
+        <p class="help" id="guardrailNote" hidden>The test chatbot cannot be reached. Runs will be refused until it is started.</p>
+      </fieldset>
+      <fieldset class="field" id="tier">
+        <legend>Test size: how much to run</legend>
+        <p class="help">Start with Smoke to confirm the connection works. Use Standard for results you intend to report.</p>
+        <div class="choices cols-3" id="tierCards"></div>
+      </fieldset>
+      <details class="adv" id="advSettings">
+        <summary>Advanced: documents, and testing another chatbot</summary>
+        <fieldset class="field" id="docs">
+          <legend>Documents: what the chatbot reads from</legend>
+          <p class="help">The chatbot looks up documents before it answers. A poisoned document hides instructions or a link to an unknown website. You can change this at any time without restarting.</p>
+          <div class="choices cols-3" id="docsCards"></div>
+          <p class="help">Single tools use the clean documents unless Poisoned only is selected.</p>
+        </fieldset>
         <fieldset class="field" id="chatbotField">
           <legend>Chatbot to test</legend>
-          <p class="help">Test the built-in test chatbot, or another chatbot reached by its address. The other chatbot must accept OpenAI-style chat requests.</p>
+          <p class="help">The built-in test chatbot, or another chatbot reached by its address. It must accept OpenAI-style chat requests.</p>
           <div class="choices cols-2">
             <label class="choice compact"><input type="radio" name="chatbot" value="local" checked><span class="choice-body"><span class="choice-head"><span class="choice-title">Built-in test chatbot</span></span></span></label>
             <label class="choice compact"><input type="radio" name="chatbot" value="other" id="cbOther"><span class="choice-body"><span class="choice-head"><span class="choice-title">Another chatbot</span></span></span></label>
@@ -260,65 +320,46 @@
               <p class="help">If known, so that a long verbatim repeat of it counts as a leak.</p></div>
             <div class="actions"><button type="button" class="btn secondary" id="cbConnect">Connect</button></div>
           </div>
-          <div id="cbConnected" class="callout" hidden><span class="grow"><strong>Connected.</strong> <span id="cbConnectedText"></span> Tick the guardrail named "External chatbot (relay)" below. It is tested on clean documents only.</span>
+          <div id="cbConnected" class="callout" hidden><span class="grow"><strong>Connected.</strong> <span id="cbConnectedText"></span> Tick the guardrail named "External chatbot (relay)" above. It is tested on clean documents only.</span>
             <button type="button" class="btn ghost sm" id="cbDisconnect">Disconnect</button></div>
           <div class="status-line" id="cbMsg" role="status" aria-live="polite"></div>
         </fieldset>
-        <fieldset class="field" id="guardrails">
-          <legend>Guardrails: the protections to test</legend>
-          <div class="field-top">
-            <p class="help">A guardrail is a safety layer around the chatbot. Select one or more. Each test is run once for every guardrail selected, which allows them to be compared. If unsure, select all.</p>
-            <div class="btnrow"><button type="button" class="btn ghost sm" id="gAll">Select all</button><button type="button" class="btn ghost sm" id="gNone">Clear</button></div>
-          </div>
-          <div class="choices cols-2" id="guardrailCards"></div>
-          <p class="help">The grey code on each card is the name used in the Queue and in the results.</p>
-          <p class="help" id="guardrailNote" hidden>The test chatbot cannot be reached. Runs will be refused until it is started.</p>
-        </fieldset>
-        <fieldset class="field" id="tier">
-          <legend>Test size: how much to run</legend>
-          <p class="help">Use Smoke first to confirm that the connection works. Use Standard for results intended for reporting.</p>
-          <div class="choices cols-3" id="tierCards"></div>
-        </fieldset>
-        <fieldset class="field" id="docs">
-          <legend>Documents: what the chatbot reads from</legend>
-          <p class="help">The chatbot looks up documents before it answers. A poisoned document contains hidden instructions or a link to an unknown website. This setting can be changed at any time without restarting.</p>
-          <div class="choices cols-3" id="docsCards"></div>
-          <p class="help">Single tools use the clean documents unless Poisoned only is selected.</p>
-        </fieldset>
+      </details>
+    </div>
+    <div class="navbar">
+      <span class="navhint" id="nav1Hint">Tick at least one protection to continue.</span>
+      <button type="button" class="btn primary" id="next1" disabled>Next: choose the tests &rarr;</button>
+    </div>
+  </section>
+
+  <!-- ===== Step 2 ===== -->
+  <section id="run" class="panel" data-step="2" aria-labelledby="run-h" hidden>
+    <header class="stephead">
+      <p class="eyebrow">Step 2 of 3</p>
+      <h2 id="run-h" tabindex="-1">Run the tests</h2>
+      <p class="lead">A guided scan picks the tools for you. Tick the risks to test, check the plan, and start.</p>
+    </header>
+    <fieldset class="routes tight">
+      <legend class="sr-only">How would you like to run the tests?</legend>
+      <div class="seg">
+        <label class="segopt"><input type="radio" name="route" value="guided" id="routeGuided" aria-controls="panelGuided" checked><span>Guided scan <em class="chip rec">Recommended</em></span></label>
+        <label class="segopt"><input type="radio" name="route" value="single" id="routeSingle" aria-controls="panelSingle"><span>Single tools <em class="chip adv">Advanced</em></span></label>
       </div>
-    </section>
+    </fieldset>
 
-    <section id="run" class="block" aria-labelledby="run-h">
-      <div class="step"><span class="num" aria-hidden="true">2</span><h2 id="run-h">How would you like to run the tests?</h2>
-        <p>Select one. Both use the settings above and the same Queue. If unsure, use Guided scan.</p></div>
-      <fieldset class="routes">
-        <legend class="sr-only">How would you like to run the tests?</legend>
-        <div class="choices cols-2" style="margin-top:0">
-          <label class="choice route"><input type="radio" name="route" value="guided" id="routeGuided" aria-controls="panelGuided" checked>
-            <span class="choice-body"><span class="choice-head"><span class="choice-title">Guided scan</span><span class="chip rec">Recommended</span></span>
-              <span class="choice-desc">Select what to test, such as prompt injection or secret leaks. The tools are chosen automatically, and the results are shown in a table with example replies.</span></span></label>
-          <label class="choice route"><input type="radio" name="route" value="single" id="routeSingle" aria-controls="panelSingle">
-            <span class="choice-body"><span class="choice-head"><span class="choice-title">Run single tools</span><span class="chip adv">Advanced</span></span>
-              <span class="choice-desc">Select the tools directly, for example a quick Garak check on one guardrail. There is no results table. Output is read in the Queue and in Log reports.</span></span></label>
+    <div class="card rec" id="panelGuided" aria-labelledby="gh">
+      <div class="card-head"><h3 id="gh" tabindex="-1">Guided scan</h3></div>
+      <p class="caption">You choose what to test. The tools are chosen automatically, and the results appear as a table of risk against guardrail, with example replies. Saved to results/scans/&lt;name&gt;.md.</p>
+      <fieldset class="field" id="catsField">
+        <legend>What should be tested?</legend>
+        <div class="field-top">
+          <p class="help">The ten OWASP LLM Top 10 risks. Each card names the tools that test it; dashed labels are slow tools. Greyed-out risks have no automated test yet.</p>
+          <div class="btnrow"><button type="button" class="btn ghost sm" id="catAll">Select all</button><button type="button" class="btn ghost sm" id="catNone">Clear</button></div>
         </div>
+        <div class="choices auto" id="cats"></div>
       </fieldset>
-
-      <div class="card rec" id="panelGuided" aria-labelledby="gh">
-        <div class="card-head"><h3 id="gh" tabindex="-1">Guided scan</h3><span class="chip rec">Recommended</span></div>
-        <dl class="meta">
-          <dt>Best for</dt><dd>Testing the chatbot against OWASP risks, such as prompt injection or secret leaks.</dd>
-          <dt>You pick</dt><dd>What to test (the risk categories). The tools are chosen automatically.</dd>
-          <dt>You get</dt><dd>A table of risk category against guardrail, with example replies. The secret is masked. The report is saved to results/scans/&lt;name&gt;.md.</dd>
-          <dt>Read it in</dt><dd>Step 3, Scan results.</dd>
-        </dl>
-        <fieldset class="field" id="catsField">
-          <legend>What should be tested?</legend>
-          <div class="field-top">
-            <p class="help">All ten OWASP LLM Top 10 risks are listed, a standard list of chatbot risks. Each card names the tools that test it. Dashed labels are slow tools. Greyed-out risks have no automated test yet.</p>
-            <div class="btnrow"><button type="button" class="btn ghost sm" id="catAll">Select all</button><button type="button" class="btn ghost sm" id="catNone">Clear</button></div>
-          </div>
-          <div class="choices auto" id="cats"></div>
-        </fieldset>
+      <details class="adv">
+        <summary>Options: slow tools and scan name</summary>
         <div class="choices" style="grid-template-columns:minmax(0,1fr)" id="slowWrap">
           <label class="choice"><input type="checkbox" id="slow" name="slow"><span class="choice-body"><span class="choice-head"><span class="choice-title">Include slow tools</span></span>
             <span class="choice-desc" id="slowDesc">Adds the slow tools. They send many more requests or need extra set-up, so the scan takes much longer. Off by default.</span></span></label>
@@ -326,117 +367,132 @@
         <div class="fgroup">
           <label class="flabel" for="scanName">Scan name (optional)</label>
           <input type="text" id="scanName" maxlength="40" placeholder="for example blocklist-check" aria-describedby="scanNameHelp">
-          <p class="help" id="scanNameHelp">Letters, digits, hyphens and underscores only, up to 40 characters. The report is saved as results/scans/&lt;name&gt;.md. If left empty, a name is generated from the date and time.</p>
+          <p class="help" id="scanNameHelp">Letters, digits, hyphens and underscores only, up to 40 characters. If left empty, a name is generated from the date and time.</p>
         </div>
-        <div class="plan" id="scanPlan">
-          <h4>What will run</h4>
-          <dl><dt>Tests</dt><dd id="spTests"></dd><dt>Tools</dt><dd id="spTools"></dd><dt>Guardrails</dt><dd id="spGuards"></dd>
-            <dt>Test size and documents</dt><dd id="spTier"></dd><dt>Size</dt><dd id="spSize"></dd></dl>
-          <p class="warnline" id="spWarn" hidden></p>
-          <p id="spHint"></p>
-          <button type="button" class="btn link" data-goto="settings">Change settings</button>
-        </div>
-        <div class="actions">
-          <button type="button" class="btn primary run" id="scanGo" aria-describedby="scanPlan">Start guided scan</button>
-          <span class="muted">Jobs are added to the Queue and run one at a time.</span>
-        </div>
-        <div class="status-line" id="scanMsg" role="status" aria-live="polite"></div>
+      </details>
+      <div class="plan" id="scanPlan">
+        <h4>What will run</h4>
+        <dl><dt>Tests</dt><dd id="spTests"></dd><dt>Tools</dt><dd id="spTools"></dd><dt>Guardrails</dt><dd id="spGuards"></dd>
+          <dt>Test size and documents</dt><dd id="spTier"></dd><dt>Size</dt><dd id="spSize"></dd></dl>
+        <p class="warnline" id="spWarn" hidden></p>
+        <p id="spHint"></p>
+        <button type="button" class="btn link" data-goto="settings">Change settings</button>
       </div>
+      <div class="actions">
+        <button type="button" class="btn primary run" id="scanGo" aria-describedby="scanPlan">Start guided scan</button>
+        <span class="muted">Jobs are added to the Queue and run one at a time.</span>
+      </div>
+      <div class="status-line" id="scanMsg" role="status" aria-live="polite"></div>
+    </div>
 
-      <div class="card" id="panelSingle" aria-labelledby="sh" hidden>
-        <div class="card-head"><h3 id="sh" tabindex="-1">Run single tools</h3><span class="chip adv">Advanced</span></div>
-        <div class="callout"><span class="grow">Use this instead of the guided scan, not after it. For the results table with example replies, choose Guided scan.</span>
-          <button type="button" class="btn ghost sm" id="toGuided">Switch to Guided scan</button></div>
-        <dl class="meta">
-          <dt>Best for</dt><dd>A check with one specific tool, such as a Smoke run of Garak on the blocklist.</dd>
-          <dt>You pick</dt><dd>The tools. There are no risk categories.</dd>
-          <dt>You get</dt><dd>The tool's own output only. There is no results table.</dd>
-          <dt>Read it in</dt><dd>The Queue (select Log on a job) and Log reports.</dd>
-        </dl>
-        <fieldset class="field" id="toolsField">
-          <legend>Which tools?</legend>
-          <p class="help">The label on each card is the approximate number of requests the tool sends to each guardrail, at the test size chosen in step 1.</p>
-          <div class="choices auto" id="tools"></div>
-        </fieldset>
-        <div class="fgroup">
+    <div class="card" id="panelSingle" aria-labelledby="sh" hidden>
+      <div class="card-head"><h3 id="sh" tabindex="-1">Run single tools</h3></div>
+      <div class="callout"><span class="grow">Use this instead of the guided scan, not after it. There is no results table: read the output in the Queue and in Log reports.</span>
+        <button type="button" class="btn ghost sm" id="toGuided">Switch to Guided scan</button></div>
+      <fieldset class="field" id="toolsField">
+        <legend>Which tools?</legend>
+        <p class="help">The label on each card is the approximate number of requests the tool sends to each guardrail, at the test size chosen in step 1.</p>
+        <div class="choices auto" id="tools"></div>
+      </fieldset>
+      <details class="adv">
+        <summary>Option: run label</summary>
+        <div class="fgroup tight">
           <label class="flabel" for="runLabel">Run label (optional)</label>
           <input type="text" id="runLabel" maxlength="40" placeholder="for example gap1" aria-describedby="runLabelHelp">
-          <p class="help" id="runLabelHelp">Names this batch in the Queue. Letters, digits, hyphens and underscores only, up to 40 characters. Jobs in one batch share the label. A label that has already been used is skipped. If left empty, a label is generated from the date and time.</p>
+          <p class="help" id="runLabelHelp">Names this batch in the Queue. Letters, digits, hyphens and underscores only, up to 40 characters. A label that has already been used is skipped. If left empty, a label is generated from the date and time.</p>
         </div>
-        <div class="plan" id="runPlan">
-          <h4>What will run</h4>
-          <dl><dt>Tools</dt><dd id="rpTools"></dd><dt>Guardrails</dt><dd id="rpGuards"></dd>
-            <dt>Test size and documents</dt><dd id="rpTier"></dd><dt>Size</dt><dd id="rpSize"></dd></dl>
-          <p id="rpNote" hidden>Single tools use clean documents. Automatic document selection applies to Guided scan only.</p>
-          <p id="rpHint"></p>
-          <button type="button" class="btn link" data-goto="settings">Change settings</button>
-        </div>
-        <div class="actions">
-          <button type="button" class="btn secondary run" id="queueRuns" aria-describedby="runPlan">Run selected tools</button>
-          <span class="muted">Jobs are added to the Queue and run one at a time.</span>
-        </div>
-        <div class="status-line" id="message" role="status" aria-live="polite"></div>
+      </details>
+      <div class="plan" id="runPlan">
+        <h4>What will run</h4>
+        <dl><dt>Tools</dt><dd id="rpTools"></dd><dt>Guardrails</dt><dd id="rpGuards"></dd>
+          <dt>Test size and documents</dt><dd id="rpTier"></dd><dt>Size</dt><dd id="rpSize"></dd></dl>
+        <p id="rpNote" hidden>Single tools use clean documents. Automatic document selection applies to Guided scan only.</p>
+        <p id="rpHint"></p>
+        <button type="button" class="btn link" data-goto="settings">Change settings</button>
       </div>
+      <div class="actions">
+        <button type="button" class="btn primary run" id="queueRuns" aria-describedby="runPlan">Run selected tools</button>
+        <span class="muted">Jobs are added to the Queue and run one at a time.</span>
+      </div>
+      <div class="status-line" id="message" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="navbar">
+      <button type="button" class="btn ghost" id="back2">&larr; Back</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" id="skip2">View results &rarr;</button>
+    </div>
+  </section>
+
+  <!-- ===== Step 3 ===== -->
+  <section id="results" class="panel" data-step="3" aria-labelledby="results-h" hidden>
+    <header class="stephead">
+      <p class="eyebrow">Step 3 of 3</p>
+      <h2 id="results-h" tabindex="-1">Read the results</h2>
+      <p class="lead">Guided scans appear as a results table. Every job, from either route, appears in the Queue.</p>
+    </header>
+    <div class="tabs" role="tablist" aria-label="Results">
+      <button type="button" class="tab on" role="tab" id="tab-scan-results" data-tab="scan-results" aria-selected="true" aria-controls="scan-results">Scan results</button>
+      <button type="button" class="tab" role="tab" id="tab-queue" data-tab="queue" aria-selected="false" aria-controls="queue" tabindex="-1">Queue<span class="pill" id="queuePill" hidden></span></button>
+      <button type="button" class="tab" role="tab" id="tab-reports" data-tab="reports" aria-selected="false" aria-controls="reports" tabindex="-1">Log reports</button>
+    </div>
+
+    <section class="card" id="scan-results" role="tabpanel" aria-labelledby="tab-scan-results">
+      <div class="actions tight" style="margin-top:0">
+        <div><label class="flabel" for="scanPick">Scan</label><select id="scanPick"><option value="">No scans yet</option></select></div>
+        <button type="button" class="btn ghost" id="scanCopy" disabled>Copy as markdown</button>
+        <a class="btn ghost" id="scanReport" href="#" target="_blank" rel="noopener" hidden>Open pentest report</a>
+        <span id="scanCopied" class="muted" role="status"></span>
+      </div>
+      <p class="help" id="scanProgress"></p>
+      <div id="scanBox" data-state="empty"><p class="help">No scan has been run. In step 2, choose Guided scan, select what to test and press Start guided scan.</p></div>
     </section>
 
-    <div id="results" class="block" style="display:flex;flex-direction:column;gap:16px">
-      <div class="step"><span class="num" aria-hidden="true">3</span><h2 id="results-h">Review the results</h2>
-        <p>Guided scans are shown as a results table. Single-tool runs are shown in the Queue and in Log reports. Jobs from both routes appear in the Queue.</p></div>
+    <section class="card" id="queue" role="tabpanel" aria-labelledby="tab-queue" hidden>
+      <div class="card-head"><h3 id="queue-h" tabindex="-1">Queue</h3><span class="grow"></span>
+        <button type="button" class="btn ghost sm" id="clear">Clear finished</button></div>
+      <p class="caption">Jobs run one at a time, because the test chatbot handles one request at a time. Select Log to follow a job's output.</p>
+      <div class="tablewrap" id="queueWrap">
+        <table id="jobsTable" role="table">
+          <thead role="rowgroup"><tr role="row"><th role="columnheader">#</th><th role="columnheader">Tool</th><th role="columnheader">Guardrail</th><th role="columnheader">Test size</th><th role="columnheader">Label</th><th role="columnheader">From</th><th role="columnheader">Status</th><th role="columnheader">Result</th><th role="columnheader">Started</th><th role="columnheader"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody id="jobs" role="rowgroup"></tbody>
+        </table>
+      </div>
+      <p class="help">Result is the number of attacks the tool itself flagged, out of those it attempted. A tool can be wrong. The Scan results table uses a separate check.</p>
+      <p class="help" id="logtitle" style="margin-top:16px">Select Log on a job to follow its output here.</p>
+      <pre id="log" hidden tabindex="0" role="region" aria-label="Job log"></pre>
+    </section>
 
-      <section class="card" id="scan-results" aria-labelledby="scan-h">
-        <div class="card-head"><h3 id="scan-h" tabindex="-1">Scan results</h3><span class="chip adv">From Guided scan</span></div>
-        <div class="actions" style="margin-top:8px">
-          <div><label class="flabel" for="scanPick">Scan</label><select id="scanPick"><option value="">No scans yet</option></select></div>
-          <button type="button" class="btn ghost" id="scanCopy" disabled>Copy as markdown</button>
-          <a class="btn ghost" id="scanReport" href="#" target="_blank" rel="noopener" hidden>Open pentest report</a>
-          <span id="scanCopied" class="muted" role="status"></span>
+    <section class="card" id="reports" role="tabpanel" aria-labelledby="tab-reports" hidden>
+      <div class="card-head"><h3 id="reports-h" tabindex="-1">Log reports</h3></div>
+      <p class="caption">Comparison matrix: every tool against every guardrail. Full summary: everything the test chatbot did, from the server log. Use these to review single-tool runs.</p>
+      <fieldset id="reportDocsField">
+        <legend>Documents for the comparison</legend>
+        <div class="choices" style="grid-template-columns:repeat(2,minmax(0,200px))">
+          <label class="choice compact"><input type="radio" name="reportDocs" value="clean" checked><span class="choice-body"><span class="choice-head"><span class="choice-title">Clean</span></span></span></label>
+          <label class="choice compact"><input type="radio" name="reportDocs" value="poisoned"><span class="choice-body"><span class="choice-head"><span class="choice-title">Poisoned</span></span></span></label>
         </div>
-        <p class="help" id="scanProgress"></p>
-        <div id="scanBox" data-state="empty"><p class="help">No scan has been run. In step 2, choose Guided scan, select what to test and press Start guided scan.</p></div>
-      </section>
+        <p class="help">This applies to the comparison matrix only.</p>
+      </fieldset>
+      <div class="choices" style="grid-template-columns:minmax(0,320px)">
+        <label class="choice compact"><input type="checkbox" id="stub"><span class="choice-body"><span class="choice-head"><span class="choice-title">Include test-mode rows</span></span>
+          <span class="choice-desc">Rows from a test chatbot that uses a fake model. Leave this off for real results.</span></span></label>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn ghost" data-kind="compare">Comparison matrix</button>
+        <button type="button" class="btn ghost" data-kind="summary">Full summary</button>
+        <button type="button" class="btn ghost" id="copy">Copy</button>
+        <span id="copied" class="muted" role="status"></span>
+      </div>
+      <div id="matrixBox" hidden></div>
+      <pre id="report" tabindex="0" role="region" aria-label="Report output">Select a button to build a report from the server log.</pre>
+    </section>
 
-      <section class="card" id="queue" aria-labelledby="queue-h">
-        <div class="card-head"><h3 id="queue-h" tabindex="-1">Queue</h3><span class="chip adv">Both routes</span><span class="grow"></span>
-          <button type="button" class="btn ghost sm" id="clear">Clear finished</button></div>
-        <p class="caption">Every job from either route is listed here and runs one at a time, because the test chatbot handles one request at a time. Select Log to follow a job's output.</p>
-        <div class="tablewrap" id="queueWrap">
-          <table id="jobsTable" role="table">
-            <thead role="rowgroup"><tr role="row"><th role="columnheader">#</th><th role="columnheader">Tool</th><th role="columnheader">Guardrail</th><th role="columnheader">Test size</th><th role="columnheader">Label</th><th role="columnheader">From</th><th role="columnheader">Status</th><th role="columnheader">Result</th><th role="columnheader">Started</th><th role="columnheader"><span class="sr-only">Actions</span></th></tr></thead>
-            <tbody id="jobs" role="rowgroup"></tbody>
-          </table>
-        </div>
-        <p class="help">Result is the number of attacks the tool itself flagged, out of those it attempted. A tool can be wrong. The Scan results table uses a separate check.</p>
-        <p class="help" id="logtitle" style="margin-top:16px">Select Log on a job to follow its output here.</p>
-        <pre id="log" hidden tabindex="0" role="region" aria-label="Job log"></pre>
-      </section>
-
-      <section class="card" id="reports" aria-labelledby="reports-h">
-        <div class="card-head"><h3 id="reports-h" tabindex="-1">Log reports</h3><span class="chip adv">From the server log</span></div>
-        <p class="caption">Comparison matrix: every tool against every guardrail. Full summary: everything the test chatbot did, taken from the server log. Use these to review single-tool runs.</p>
-        <fieldset id="reportDocsField">
-          <legend>Documents for the comparison</legend>
-          <div class="choices" style="grid-template-columns:repeat(2,minmax(0,200px))">
-            <label class="choice compact"><input type="radio" name="reportDocs" value="clean" checked><span class="choice-body"><span class="choice-head"><span class="choice-title">Clean</span></span></span></label>
-            <label class="choice compact"><input type="radio" name="reportDocs" value="poisoned"><span class="choice-body"><span class="choice-head"><span class="choice-title">Poisoned</span></span></span></label>
-          </div>
-          <p class="help">This applies to the comparison matrix only.</p>
-        </fieldset>
-        <div class="choices" style="grid-template-columns:minmax(0,320px)">
-          <label class="choice compact"><input type="checkbox" id="stub"><span class="choice-body"><span class="choice-head"><span class="choice-title">Include test-mode rows</span></span>
-            <span class="choice-desc">Rows from a test chatbot that uses a fake model. Leave this off for real results.</span></span></label>
-        </div>
-        <div class="actions">
-          <button type="button" class="btn ghost" data-kind="compare">Comparison matrix</button>
-          <button type="button" class="btn ghost" data-kind="summary">Full summary</button>
-          <button type="button" class="btn ghost" id="copy">Copy</button>
-          <span id="copied" class="muted" role="status"></span>
-        </div>
-        <div id="matrixBox" hidden></div>
-        <pre id="report" tabindex="0" role="region" aria-label="Report output">Select a button to build a report from the server log.</pre>
-      </section>
+    <div class="navbar">
+      <button type="button" class="btn ghost" id="back3">&larr; Run more tests</button>
     </div>
-  </main>
-</div>
+  </section>
+</main>
 
 <footer>
   The secret in the test chatbot is a fake code. This is a proof of concept and is not connected to AskDBC or any real LTA system. It accepts connections from this computer only (127.0.0.1).
@@ -560,6 +616,8 @@ function drawChatbot() {
   const connected = !!(target && target.relay);
   if (connected) $("cbOther").checked = true;
   const other = $("cbOther").checked;
+  if (connected && !relayOpened) { $("advSettings").open = true; relayOpened = true; }
+  if (!connected) relayOpened = false;
   $("cbForm").hidden = !other || connected;
   $("cbConnected").hidden = !connected;
   if (connected) setText($("cbConnectedText"), "Requests go to " + target.relay.url + (target.relay.model ? " (model " + target.relay.model + ")" : "") + ".");
@@ -645,6 +703,7 @@ function plan() {
     const n = estimateOf(c.dataset.tool, tier);
     setText(c, n === null ? "large, no estimate" : "about " + fmt(n) + " requests");
   });
+  updateNav();
 }
 
 // ---------- building the option cards ----------
@@ -686,16 +745,57 @@ function setRoute(v) {
   $("routeGuided").checked = guided; $("routeSingle").checked = !guided;
   plan();
 }
+// ---------- steps and tabs ----------
+const TABS = ["scan-results", "queue", "reports"];
+let step = 1, tab = "scan-results", relayOpened = false;
+const REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function drawStepper() {
+  [1, 2, 3].forEach((n) => {
+    const b = $("st" + n), current = n === step, done = n < step;
+    b.className = "stbtn" + (current ? " current" : "") + (done ? " done" : "");
+    if (current) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
+  });
+  $("cn1").className = "conn" + (step > 1 ? " done" : "");
+  $("cn2").className = "conn" + (step > 2 ? " done" : "");
+}
+function showTab(id) {
+  tab = TABS.includes(id) ? id : "scan-results";
+  TABS.forEach((t) => {
+    const on = t === tab, b = $("tab-" + t);
+    $(t).hidden = !on; b.classList.toggle("on", on); b.setAttribute("aria-selected", on ? "true" : "false"); b.tabIndex = on ? 0 : -1;
+  });
+}
+function showStep(n, which) {
+  step = n;
+  document.querySelectorAll(".panel").forEach((p) => { p.hidden = Number(p.dataset.step) !== n; });
+  if (n === 3) showTab(which || tab);
+  drawStepper();
+  window.scrollTo({top: 0, behavior: REDUCED ? "auto" : "smooth"});
+  const h = document.querySelector('.panel[data-step="' + n + '"] h2');
+  if (h) h.focus({preventScroll: true});
+}
+function updateNav() {
+  const ok = checked("guardrails").length > 0;
+  $("next1").disabled = !ok;
+  setText($("nav1Hint"), ok ? "" : "Tick at least one protection to continue.");
+}
 function goTo(id) {
-  const t = $(id); if (!t) return;
-  t.scrollIntoView();
-  const h = t.querySelector("h2, h3") || (/^H[23]$/.test(t.tagName) ? t : null);
-  if (h) { h.tabIndex = -1; h.focus({preventScroll: true}); }
+  if (id === "settings") showStep(1);
+  else if (id === "run" || id === "gh" || id === "sh") showStep(2);
+  else if (id === "results") showStep(3);
+  else if (TABS.includes(id)) showStep(3, id);
+}
+function setRoute(v) {
+  const guided = v !== "single";
+  $("panelGuided").hidden = !guided; $("panelSingle").hidden = guided;
+  $("routeGuided").checked = guided; $("routeSingle").checked = !guided;
+  plan();
 }
 function routeFromHash() {
-  const h = location.hash;
-  if (h === "#advanced" || h === "#single") { setRoute("single"); goTo("run"); }
-  else if (h === "#scan" || h === "#guided") { setRoute("guided"); goTo("run"); }
+  const h = location.hash.replace("#", "");
+  if (h === "advanced" || h === "single") { setRoute("single"); showStep(2); }
+  else if (h === "scan" || h === "guided") { setRoute("guided"); showStep(2); }
+  else if (["settings", "run", "results", ...TABS].includes(h)) goTo(h);
 }
 
 // ---------- queue ----------
@@ -703,9 +803,11 @@ function drawJobs(jobs) {
   const key = JSON.stringify([jobs, [...scanLabels].sort()]);
   if (key === lastJobsKey) return;
   lastJobsKey = key;
+  const active = jobs.filter((j) => j.status === "queued" || j.status === "running").length;
+  $("queuePill").hidden = !active; setText($("queuePill"), String(active));
   const body = $("jobs"); body.textContent = "";
   if (!jobs.length) {
-    const tr = el("tr", null, null, {role: "row"}), td = el("td", "No jobs yet. Add jobs in step 2.", null, {colspan: "10", role: "cell"});
+    const tr = el("tr", null, null, {role: "row"}), td = el("td", "No jobs yet. Start a run in step 2.", null, {colspan: "10", role: "cell"});
     tr.append(td); body.append(tr); return;
   }
   const cols = ["#", "Tool", "Guardrail", "Test size", "Label", "From", "Status", "Result", "Started"];
@@ -881,6 +983,7 @@ async function startScan() {
     await refresh(); loadScan();
     messageWith("scanMsg", "Added " + plural(r.created.length, "job") + " to the Queue for scan " + r.label + " (" + r.tools.join(", ") + "). They run one at a time." + (r.warnings.length ? " " + r.warnings.join(" ") : ""),
       [["Go to scan results", "scan-results"], ["Go to the Queue", "queue"]], false);
+    showStep(3, "scan-results");
   } catch (e) { messageWith("scanMsg", "Not started: " + e.message, [], true); }
 }
 async function runTools() {
@@ -899,6 +1002,7 @@ async function runTools() {
     await refresh();
     messageWith("message", "Added " + plural(r.created.length, "job") + " to the Queue with label " + r.label + "." + (r.skipped.length ? " Skipped: " + r.skipped.join("; ") : ""),
       [["Go to the Queue", "queue"], ["Go to Log reports", "reports"]], false);
+    showStep(3, "queue");
   } catch (e) { messageWith("message", "Not started: " + e.message, [], true); }
 }
 
@@ -920,9 +1024,19 @@ async function init() {
   $("cbConnect").onclick = connectChatbot; $("cbDisconnect").onclick = disconnectChatbot;
   document.querySelectorAll('input[name="chatbot"]').forEach((r) => r.addEventListener("change", () => {
     if (radioValue("chatbot", "local") === "local" && target && target.relay) disconnectChatbot(); else drawChatbot();
+    if (radioValue("chatbot", "local") === "other") $("advSettings").open = true;
   }));
   document.querySelectorAll('input[name="route"]').forEach((r) => r.addEventListener("change", () => setRoute(radioValue("route", "guided"))));
   $("toGuided").onclick = () => { setRoute("guided"); $("gh").focus({preventScroll: false}); };
+  document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => showStep(Number(b.dataset.go))));
+  $("next1").onclick = () => showStep(2); $("back2").onclick = () => showStep(1); $("skip2").onclick = () => showStep(3); $("back3").onclick = () => showStep(2);
+  document.querySelectorAll("[data-tab]").forEach((b) => {
+    b.addEventListener("click", () => showTab(b.dataset.tab));
+    b.addEventListener("keydown", (e) => {
+      const i = TABS.indexOf(b.dataset.tab), to = e.key === "ArrowRight" ? (i + 1) % TABS.length : e.key === "ArrowLeft" ? (i + TABS.length - 1) % TABS.length : -1;
+      if (to >= 0) { e.preventDefault(); showTab(TABS[to]); $("tab-" + TABS[to]).focus(); }
+    });
+  });
   document.querySelectorAll("[data-goto]").forEach((b) => { b.onclick = () => goTo(b.dataset.goto); });
   $("gAll").onclick = () => tickAll("guardrails", true); $("gNone").onclick = () => tickAll("guardrails", false);
   $("catAll").onclick = () => tickAll("cats", true); $("catNone").onclick = () => tickAll("cats", false);
@@ -940,7 +1054,7 @@ async function init() {
     } catch (e) { $("report").textContent = "Error: " + e.message; }
   });
   window.addEventListener("hashchange", routeFromHash);
-  setRoute("guided"); plan(); routeFromHash();
+  setRoute("guided"); plan(); showStep(1); routeFromHash();
   refresh(); setInterval(refresh, 2000); setInterval(pollLog, 1500);
   setInterval(() => { loadScans(); if (scanBusy) loadScan(); }, 3000);
 }

@@ -20,9 +20,12 @@ After the first run everything works offline except the optional adaptive attack
 
 ## 2. Get the code
 
+The repository is private, so a plain `git clone` from PowerShell fails with "Repository not found" unless you are logged in to GitHub. Clone it with GitHub Desktop
+(**File**, **Clone repository**, pick `danieldisc/ai-redteam-tool`, choose an empty folder), or log in first with the GitHub CLI (`gh auth login`) and run
+`gh repo clone danieldisc/ai-redteam-tool`. Then open PowerShell in the cloned folder:
+
 ```powershell
-git clone https://github.com/danieldisc/ai-redteam-tool.git
-cd ai-redteam-tool
+cd path\to\ai-redteam-tool
 ```
 
 ## 3. Install Ollama and the model
@@ -42,8 +45,12 @@ This holds the target server, the web page and Garak, Giskard and Inspect AI.
 py -3.12 -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements-lock.txt
 ```
+
+`requirements-lock.txt` has the exact versions of every package, so pip has nothing to search and the install takes a few minutes (plus the download). Do not use `requirements.txt` for a normal install: it lists
+only the direct dependencies, and pip can spend half an hour or more trying combinations of the packages underneath (it appears stuck at `Collecting fastembed`). The lock file is for Windows; it includes
+Windows-only packages.
 
 If PowerShell refuses to run the activation script, allow it for your user once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
@@ -55,8 +62,11 @@ PyRIT needs a newer `datasets` package than Garak allows, so it has its own envi
 
 ```powershell
 py -3.12 -m venv venv-pyrit
+.\venv-pyrit\Scripts\python -m pip install --upgrade pip
 .\venv-pyrit\Scripts\python -m pip install -r requirements-pyrit.txt
 ```
+
+The last step can show no output for several minutes while it unpacks the packages. That is normal; leave it.
 
 The tool looks for `venv-pyrit\Scripts\python.exe` (or `venv-pyrit/bin/python`). To put it elsewhere, set `PYRIT_PYTHON` to the full path of that Python.
 
@@ -84,7 +94,7 @@ Four checks, from the quickest. Do them in order and stop at the first that fail
 Get-ChildItem tests\test_*.py | ForEach-Object { Write-Host $_.Name; python $_.FullName }
 ```
 
-Every file should end by reporting that its checks passed. Two things are expected without the optional packages: `test_adaptive.py` needs `anthropic`, and
+Every file should end by reporting that its checks passed. The lock file installs `anthropic` and `fastapi`, so nothing should skip. If you installed from `requirements.txt` instead, `test_adaptive.py` and one check in `test_ui.py` need `anthropic`, and
 the server tests in `test_docs_mode.py` and `test_library.py` print `SKIP` if `fastapi` is missing. (Linux or macOS: `for t in tests/test_*.py; do python $t; done`.)
 
 **b. The target server with the fake model** (no Ollama; proves the wiring):
@@ -106,12 +116,12 @@ The first start loads NeMo and Chroma, and Chroma downloads its small embedding 
 **d. One real smoke run and the web page.** In a second terminal (activate `venv` again):
 
 ```powershell
-python run.py baseline --target both --tier smoke --run check1
+python run.py baseline --target both --tier smoke --run check1 --yes
 python report/analyse.py --tool baseline
 python ui/app.py
 ```
 
-The smoke run sends tens of requests and should finish in a few minutes. Open <http://127.0.0.1:8080>. The page should show the target as running. Run a **Guided scan** with one category and the *smoke* tier
+`--yes` skips the "Continue? [y/N]" question that every run asks first; without it, type `y`. The smoke run sends tens of requests and should finish in a few minutes. On a clean install the baseline run gives 2 of 27 requests leaking on `unguarded` and 0 of 27 on `guarded`; PyRIT's smoke run (`python run.py pyrit --target unguarded --tier smoke --run py1 --yes`) shows 0 achieved of 8. Open <http://127.0.0.1:8080>. The page should show the target as running. Run a **Guided scan** with one category and the *smoke* tier
 to prove the whole path.
 
 Every run label is single-use per tool and target: use a new one (`check2`, `check3`…) each time.
@@ -137,6 +147,7 @@ Every run label is single-use per tool and target: use a new one (`check2`, `che
 | `PyRIT environment not found` | Step 5 not done, or set `PYRIT_PYTHON`. |
 | `npx not found` | Install Node.js 20 or newer and open a new terminal. |
 | `<tag> on <target> has already been run` | Run labels are single-use. Pass a new `--run` label. |
+| `pip install` seems stuck at `Collecting fastembed` or `huggingface_hub` | You are installing from `requirements.txt`. Press Ctrl+C and install from `requirements-lock.txt` instead. |
 | `ModuleNotFoundError` for a tool | The main environment is not active (`.\venv\Scripts\Activate.ps1`), or step 4 did not finish. |
 | `Cannot listen on port 8080` | Another program uses it. `python ui/app.py --port 8081`. The target's port is `--port` on `target/server.py` (and `--target-url` on the page). |
 | Garak or Promptfoo seems to hang for a long time | It is not stuck: `standard` Garak sends about 1,700 requests per guardrail and Promptfoo about 340, one at a time. Use `smoke` first. See the request counts in the User Guide. |
@@ -146,5 +157,13 @@ Every run label is single-use per tool and target: use a new one (`check2`, `che
 
 ## 11. Updating and removing
 
-Update: `git pull`, then `pip install -r requirements.txt` again in the main environment (and the PyRIT one if `requirements-pyrit.txt` changed).
+Update: `git pull`, then `pip install -r requirements-lock.txt` again in the main environment (and the PyRIT one if `requirements-pyrit.txt` changed).
 Remove: delete the repository folder (which holds both environments) and, if you wish, `ollama rm llama3.1:8b`. The Chroma embedding model is cached in your user profile.
+
+**Changing a dependency.** Edit `requirements.txt`, install it in your working environment, then regenerate the lock file from that environment (never from a half-installed one), and commit both:
+
+```powershell
+pip freeze | Out-File -Encoding utf8 requirements-lock.txt
+```
+
+Open the file and delete any line that starts with `-e` or contains `@ file:///` (a local install). Windows PowerShell 5 writes a byte-order mark and Windows line endings here; pip reads both.
