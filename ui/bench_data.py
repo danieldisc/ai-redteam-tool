@@ -23,6 +23,7 @@ import csv
 import io
 import json
 import os
+import shutil
 import sys
 import tempfile
 from collections import Counter, defaultdict
@@ -266,13 +267,16 @@ def view(record: dict, review: dict | None) -> dict:
 
 
 def filter_requests(records: list[dict], reviews: dict, tool: str | None = None, state: str | None = None,
-                    kind: str | None = None, text: str | None = None, limit: int = 100, offset: int = 0) -> dict:
+                    kind: str | None = None, text: str | None = None, limit: int = 100, offset: int = 0,
+                    label: str | None = None) -> dict:
     """A page of requests, last recorded first (files in name order, lines in order within a file; the adapter writes local
     times and bench_send UTC, so the times are not compared), with how many matched in all."""
     needle = (text or "").strip().lower()
     matched = []
     for record in reversed(records):
         if tool and record["tool"] != tool:
+            continue
+        if label and record["label"] != label:
             continue
         v = view(record, reviews.get(record["key"]))
         if state and v["state"] != state:
@@ -285,6 +289,44 @@ def filter_requests(records: list[dict], reviews: dict, tool: str | None = None,
     limit = max(1, min(int(limit), 500))
     offset = max(0, int(offset))
     return {"total": len(matched), "offset": offset, "requests": matched[offset:offset + limit]}
+
+
+def batches_of(records: list[dict]) -> list[dict]:
+    """The batches in the results: one row per (tool, label) with how many requests it holds."""
+    found: dict[tuple[str, str], dict] = {}
+    for record in records:
+        row = found.setdefault((record["tool"], record["label"]),
+                               {"tool": record["tool"], "label": record["label"], "source": record["source"], "requests": 0})
+        row["requests"] += 1
+    return list(found.values())
+
+
+def delete_batch(log_dir: Path, tool: str, label: str) -> int:
+    """Remove one batch from an adapter log file. The file is first copied to <name>.bak so nothing is lost for good.
+    Returns how many requests were removed."""
+    path = Path(log_dir) / f"{tool}.jsonl"
+    if Path(tool).name != tool or not path.is_file():
+        raise ValueError("no such batch")
+    kept, removed = [], 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            kept.append(line)
+            continue
+        if isinstance(row, dict) and str(row.get("tag") or tool) == label:
+            removed += 1
+        else:
+            kept.append(line)
+    if not removed:
+        raise ValueError("no such batch")
+    shutil.copyfile(path, path.with_name(path.name + ".bak"))
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
+    os.replace(tmp, path)
+    return removed
 
 
 def to_csv(records: list[dict], reviews: dict) -> str:

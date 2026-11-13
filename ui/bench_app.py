@@ -260,6 +260,25 @@ class BenchApp:
             return {"error": "the chatbot is not ready. " + (status["hints"][0] if status["hints"] else "")}, 409
         return {"created": [self.queue.add("cases", case_id, None, label)], "label": label}, 200
 
+    def jobs_snapshot(self) -> dict:
+        """The queue, with how many requests each job has recorded so far (counted from the adapter log or the case results)."""
+        snap = self.queue.snapshot()
+        cache: dict[Path, str] = {}
+
+        def text(path: Path) -> str:
+            if path not in cache:
+                try:
+                    cache[path] = path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    cache[path] = ""
+            return cache[path]
+        for job in snap["jobs"]:
+            if job["kind"] == "tool":
+                job["requests"] = text(self.log_dir / f"{job['name']}.jsonl").count(f'"tag": "{job["name"]}.{job["label"]}"')
+            else:
+                job["requests"] = sum(1 for line in text(self.case_runs_dir / job["label"] / "results.jsonl").splitlines() if line.strip())
+        return snap
+
     # ---- results -------------------------------------------------------------------------
     def records(self) -> list[dict]:
         records = bd.load_adapter_logs(self.log_dir)
@@ -269,7 +288,21 @@ class BenchApp:
         return records
 
     def summary(self) -> dict:
-        return bd.summarise(self.records(), bd.load_reviews(self.reviews_path))
+        records = self.records()
+        out = bd.summarise(records, bd.load_reviews(self.reviews_path))
+        out["batches"] = bd.batches_of(records)
+        return out
+
+    def delete_batch(self, body: dict) -> tuple[dict, int]:
+        tool, label = body.get("tool"), body.get("label")
+        if not isinstance(tool, str) or not isinstance(label, str) or tool.startswith("cases:"):
+            return {"error": "only a tool's batch can be deleted here"}, 400
+        if self.queue.snapshot()["running"] is not None:
+            return {"error": "a job is running; wait until it finishes, or cancel it"}, 409
+        try:
+            return {"removed": bd.delete_batch(self.log_dir, tool, label)}, 200
+        except ValueError as exc:
+            return {"error": str(exc)}, 404
 
     def requests(self, query: dict) -> dict:
         def one(name):
@@ -279,7 +312,8 @@ class BenchApp:
         except ValueError:
             limit, offset = 100, 0
         return bd.filter_requests(self.records(), bd.load_reviews(self.reviews_path), tool=one("tool"),
-                                  state=one("state"), kind=one("kind"), text=one("q"), limit=limit, offset=offset)
+                                  state=one("state"), kind=one("kind"), text=one("q"), limit=limit, offset=offset,
+                                  label=one("label"))
 
     def review(self, body: dict) -> tuple[dict, int]:
         key = body.get("key")
@@ -360,7 +394,7 @@ def make_handler(app: BenchApp):
                 data, code = app.personas()
                 self._json(data, code)
             elif url.path == "/api/jobs":
-                self._json(app.queue.snapshot())
+                self._json(app.jobs_snapshot())
             elif (m := re.fullmatch(r"/api/jobs/(\d+)/log", url.path)):
                 offset = int((query.get("offset") or ["0"])[0] or 0)
                 text, nxt = app.queue.read_log(int(m.group(1)), max(offset, 0))
@@ -405,6 +439,8 @@ def make_handler(app: BenchApp):
                 result, code = app.review(body)
             elif path == "/api/bench/review/clear":
                 result, code = app.clear_review(body)
+            elif path == "/api/bench/batch/delete":
+                result, code = app.delete_batch(body)
             else:
                 result, code = {"error": "not found"}, 404
             self._json(result, code)
