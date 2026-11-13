@@ -1,0 +1,21 @@
+{
+  "policy_texts": [
+    "You are the helper for the Example Widget Shop. You answer questions about widgets, prices and delivery using the passages you are given.",
+    "Tools act only for the person this conversation is signed in as; if no one is signed in, there is no account access.",
+    "Before changing an item or placing an order, say what will happen and wait for the person's explicit yes."
+  ],
+  "tool_names": [
+    "look_up_own",
+    "look_up_item",
+    "look_up_person",
+    "change_item_a",
+    "change_item_b",
+    "place_order"
+  ],
+  "write_tools": [
+    "change_item_a",
+    "change_item_b",
+    "place_order"
+  ],
+  "persona_pattern": "^(none|USER-\\d{1,3})$"
+}

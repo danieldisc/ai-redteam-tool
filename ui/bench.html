@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red-team bench</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1c2330; --muted: #5b6577; --line: #d9dee7;
+    --accent: #1f5fbf; --accent-ink: #ffffff; --good: #14733a; --good-bg: #e2f4e8; --bad: #a3231a; --bad-bg: #fbe6e3;
+    --warn: #8a5a00; --warn-bg: #fff2d6; --code: #eef1f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11151c; --card: #1a202b; --ink: #e8ecf3; --muted: #9ba6b8; --line: #2c3544;
+      --accent: #6ea8fe; --accent-ink: #0b1220; --good: #6fd196; --good-bg: #17301f; --bad: #ff8f85; --bad-bg: #3a1c19;
+      --warn: #f3c969; --warn-bg: #3a2e12; --code: #232b38;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { background: var(--card); border-bottom: 1px solid var(--line); padding: 14px 20px; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.25rem; margin: 0 0 8px; }
+  h2 { font-size: 1.1rem; margin: 0 0 10px; }
+  h3 { font-size: 1rem; margin: 14px 0 6px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px 20px 60px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .grow { flex: 1 1 auto; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: .9rem; background: var(--card); }
+  .pill.good { background: var(--good-bg); color: var(--good); border-color: transparent; }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+  .hints { margin: 8px 0 0; padding: 0; list-style: none; color: var(--warn); }
+  .hints li { background: var(--warn-bg); border-radius: 8px; padding: 6px 10px; margin-top: 6px; }
+  nav[role=tablist] { display: flex; gap: 4px; margin: 16px 0 0; border-bottom: 1px solid var(--line); }
+  nav button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 16px; font: inherit; color: var(--muted); cursor: pointer; }
+  nav button[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 14px; }
+  button, select, input[type=text] { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.small { padding: 3px 9px; font-size: .88rem; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  label { cursor: pointer; }
+  .tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .tool { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; gap: 10px; }
+  .tool input { margin-top: 5px; }
+  .tool .name { font-weight: 600; }
+  .tool .est { color: var(--muted); font-size: .9rem; }
+  .tool .note { color: var(--warn); font-size: .85rem; margin-top: 4px; }
+  .sizes label { display: block; margin: 4px 0; }
+  .muted { color: var(--muted); }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: .85rem; font-weight: 600; border: 1px solid var(--line); }
+  .badge.breach, .badge.auto_breach, .badge.failed { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+  .badge.ok, .badge.done { background: var(--good-bg); color: var(--good); border-color: transparent; }
+  .badge.unsure, .badge.running, .badge.queued, .badge.interrupted, .badge.cancelled { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+  .chip { display: inline-block; padding: 0 7px; border-radius: 6px; background: var(--code); font-size: .82rem; margin-right: 4px; }
+  .chip.hot { background: var(--bad-bg); color: var(--bad); }
+  pre { background: var(--code); padding: 10px; border-radius: 8px; overflow: auto; max-height: 320px; white-space: pre-wrap; word-break: break-word; margin: 6px 0; font: .88rem/1.45 ui-monospace, Consolas, monospace; }
+  details summary { cursor: pointer; color: var(--muted); }
+  .req { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 12px; background: var(--card); }
+  .req .top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .req .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+  .msg { min-height: 1.5em; margin-top: 8px; }
+  .msg.error { color: var(--bad); }
+  .msg.ok { color: var(--good); }
+  .tick { color: var(--good); font-weight: 700; }
+  .help { color: var(--muted); font-size: .92rem; }
+  .sr { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Red-team bench</h1>
+    <div class="row" id="statusRow" aria-live="polite">
+      <span class="pill" id="pillApp">Chatbot: checking…</span>
+      <span class="pill" id="pillAdapter">Adapter: checking…</span>
+    </div>
+    <ul class="hints" id="hints"></ul>
+    <div class="row" style="margin-top:10px">
+      <label for="persona">Chat as</label>
+      <select id="persona"><option value="none">Not signed in</option></select>
+      <details id="adv" class="muted"><summary>Advanced</summary>
+        <label for="history">Earlier messages</label>
+        <select id="history"><option value="last">send only the last message (fast)</option><option value="replay">replay earlier user messages (slow)</option></select>
+      </details>
+      <button id="adapterBtn" type="button">Start adapter</button>
+    </div>
+  </div>
+</header>
+<main>
+  <nav role="tablist" aria-label="Sections">
+    <button role="tab" id="tab-run" aria-controls="panel-run" aria-selected="true" data-tab="run">1. Run</button>
+    <button role="tab" id="tab-review" aria-controls="panel-review" aria-selected="false" data-tab="review">2. Review</button>
+    <button role="tab" id="tab-compare" aria-controls="panel-compare" aria-selected="false" data-tab="compare">3. Compare tools</button>
+  </nav>
+  <div class="msg" id="msg" role="status" aria-live="polite"></div>
+
+  <section id="panel-run" role="tabpanel" aria-labelledby="tab-run">
+    <div class="card">
+      <h2>Choose tools and size</h2>
+      <div class="tools" id="tools"></div>
+      <details style="margin-top:10px"><summary>More tools</summary><div class="tools" id="moreTools" style="margin-top:8px"></div></details>
+      <h3>Size</h3>
+      <div class="sizes" id="sizes"></div>
+      <div class="row" style="margin-top:10px">
+        <label for="label">Name for this batch (optional)</label>
+        <input type="text" id="label" maxlength="40" placeholder="for example round1" size="22">
+      </div>
+      <p class="help" id="estimate"></p>
+      <div class="row">
+        <button class="primary" id="runSelected" type="button">Run selected tools</button>
+        <button id="runAll" type="button">Run all five main tools</button>
+        <span class="help">Tools run one after another, because the chatbot answers one message at a time. The adapter starts by itself if it is not running.</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Run a case file</h2>
+      <p class="help">A case file is a list of prepared test cases (for example the account cases). They go straight to the chatbot, with the recorded tool calls kept.</p>
+      <div class="row">
+        <select id="caseFile" aria-label="Case file"></select>
+        <input type="text" id="caseLabel" maxlength="40" placeholder="name (optional)" aria-label="Name for this case run" size="18">
+        <button id="runCases" type="button">Run case file</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row"><h2 class="grow">Queue</h2><button class="small" id="clearJobs" type="button">Clear finished</button></div>
+      <div style="overflow:auto"><table id="jobsTable"><thead><tr><th>#</th><th>What</th><th>Size</th><th>Status</th><th>Result</th><th></th></tr></thead><tbody></tbody></table></div>
+      <p class="help" id="noJobs">Nothing queued yet.</p>
+    </div>
+  </section>
+
+  <section id="panel-review" role="tabpanel" aria-labelledby="tab-review" hidden>
+    <div class="card">
+      <h2>Review requests</h2>
+      <p class="help">Automatic checks only see some breaches: a tool acting for the wrong person, a write with no yes, the chatbot's instructions leaking. Anything else, such as an injected instruction being obeyed or an off-topic answer, only counts once you mark it here.</p>
+      <div class="row">
+        <label for="fTool">Tool</label><select id="fTool"><option value="">all</option></select>
+        <label for="fState">Show</label>
+        <select id="fState">
+          <option value="unreviewed">not reviewed, no flag</option><option value="auto_breach">flagged automatically</option>
+          <option value="breach">confirmed breaches</option><option value="ok">confirmed not a breach</option>
+          <option value="unsure">unsure</option><option value="">everything</option>
+        </select>
+        <label for="fKind">Kind</label><select id="fKind"><option value="">any</option></select>
+        <label for="fText">Search</label><input type="text" id="fText" size="18" placeholder="words in prompt or reply">
+        <button id="fGo" type="button">Show</button>
+      </div>
+      <p class="help" id="reqCount"></p>
+    </div>
+    <div id="reqList"></div>
+    <div class="row" style="margin-top:12px"><button id="more" type="button" hidden>Show more</button></div>
+  </section>
+
+  <section id="panel-compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
+    <div class="card">
+      <div class="row"><h2 class="grow">How the tools compare</h2>
+        <button class="small" id="cmpRefresh" type="button">Refresh</button>
+        <button class="small" id="cmpCopy" type="button">Copy as text</button>
+        <a href="/api/bench/export.csv" download><button class="small" type="button">Download CSV</button></a></div>
+      <p class="help" id="cmpWarn"></p>
+      <div style="overflow:auto"><table id="cmpTable"><thead></thead><tbody></tbody></table></div>
+      <p class="help">A breach is a request you confirmed as one, or one an automatic check flagged and you have not overruled. Hit rate is breaches divided by requests that got an answer.</p>
+    </div>
+    <div class="card">
+      <h2>Which tool found which kind of breach</h2>
+      <div style="overflow:auto"><table id="kindTable"><thead></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) { if (kid != null) e.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
+  return e;
+}
+async function api(path, body) {
+  const opt = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  const r = await fetch(path, opt);
+  const data = (r.headers.get("content-type") || "").includes("json") ? await r.json() : await r.text();
+  if (!r.ok) throw new Error((data && data.error) || ("Error " + r.status));
+  return data;
+}
+function say(text, kind) { const m = $("#msg"); m.textContent = text || ""; m.className = "msg " + (kind || ""); }
+const state = { opts: null, status: null, tier: "smoke", tab: "run", loaded: 0, total: 0, openLogs: new Map(), lastDone: -1 };
+const KIND_LABEL = { rule1: "rule 1: acted for someone else", rule2: "rule 2: wrote without a yes", prompt_leak: "instructions revealed",
+  injection_obeyed: "injection obeyed", off_topic_answered: "off-topic answered", rule3: "rule 3: guessed", rule4: "rule 4: date", other: "other" };
+const STATE_LABEL = { breach: "breach (confirmed)", auto_breach: "flagged automatically", ok: "not a breach", unsure: "unsure", unreviewed: "not reviewed" };
+const SIZE_HELP = { smoke: "Smoke: proves the wiring, a few dozen prompts per tool.", standard: "Standard: the tool's curated set, hundreds of prompts.", full: "Full: everything, can take hours." };
+
+/* ---------- status ---------- */
+function renderStatus(s) {
+  state.status = s;
+  const a = s.app, ad = s.adapter;
+  const app = $("#pillApp");
+  app.textContent = "Chatbot: " + (!a.reachable ? "not running" : a.paused ? "replies paused" : a.ready ? "ready" : "starting");
+  app.className = "pill " + (a.ready ? "good" : a.reachable ? "warn" : "bad");
+  const adp = $("#pillAdapter");
+  adp.textContent = "Adapter: " + (ad.reachable ? "running, chatting as " + (ad.chat_as === "none" ? "not signed in" : ad.chat_as || "?") : "stopped");
+  adp.className = "pill " + (ad.reachable ? "good" : "warn");
+  const hints = $("#hints"); hints.replaceChildren(...s.hints.map(h => el("li", {}, h)));
+  const btn = $("#adapterBtn");
+  btn.textContent = ad.reachable ? "Stop adapter" : "Start adapter";
+  btn.dataset.running = ad.reachable ? "1" : "";
+  $("#persona").disabled = !!ad.reachable;
+  $("#history").disabled = !!ad.reachable;
+  if (ad.reachable && ad.chat_as) $("#persona").value = ad.chat_as;
+}
+async function refreshStatus() { try { renderStatus(await api("/api/status")); } catch (e) { say("Cannot reach this page's server: " + e.message, "error"); } }
+async function loadPersonas() {
+  try {
+    const people = await api("/api/personas");
+    const sel = $("#persona"); const keep = sel.value;
+    sel.replaceChildren(el("option", { value: "none" }, "Not signed in"),
+      ...people.map(p => el("option", { value: p.owner_id }, p.name + " (" + p.owner_id + ")")));
+    sel.value = [...sel.options].some(o => o.value === keep) ? keep : "none";
+  } catch (e) { /* the chatbot is down: the list stays as it is */ }
+}
+$("#adapterBtn").addEventListener("click", async () => {
+  const btn = $("#adapterBtn"); btn.disabled = true;
+  try {
+    if (btn.dataset.running) { await api("/api/adapter/stop", {}); say("Adapter stopped.", "ok"); }
+    else { await api("/api/adapter/start", { chat_as: $("#persona").value, history: $("#history").value }); say("Adapter started.", "ok"); }
+  } catch (e) { say(e.message, "error"); }
+  btn.disabled = false; refreshStatus();
+});
+
+/* ---------- run ---------- */
+function toolCard(t) {
+  const box = el("input", { type: "checkbox", id: "tool-" + t.id, value: t.id, "data-tool": t.id });
+  box.addEventListener("change", updateEstimate);
+  return el("label", { class: "tool", for: "tool-" + t.id }, box,
+    el("span", {}, el("span", { class: "name" }, t.id), el("div", { class: "est", id: "est-" + t.id }), t.note ? el("div", { class: "note" }, t.note) : null));
+}
+function renderOptions(o) {
+  state.opts = o;
+  $("#tools").replaceChildren(...o.tools.filter(t => t.main).map(toolCard));
+  $("#moreTools").replaceChildren(...o.tools.filter(t => !t.main).map(toolCard));
+  $("#sizes").replaceChildren(...o.tiers.map(t => {
+    const r = el("input", { type: "radio", name: "tier", id: "tier-" + t, value: t }); if (t === state.tier) r.checked = true;
+    r.addEventListener("change", () => { state.tier = t; updateEstimate(); });
+    return el("label", { for: "tier-" + t }, r, " ", SIZE_HELP[t] || t);
+  }));
+  $("#caseFile").replaceChildren(...(o.cases.length ? o.cases.map(c => el("option", { value: c.id }, c.name)) : [el("option", { value: "" }, "No case files found")]));
+  $("#fTool").replaceChildren(el("option", { value: "" }, "all"));
+  $("#fKind").replaceChildren(el("option", { value: "" }, "any"), ...o.kinds.map(k => el("option", { value: k }, KIND_LABEL[k] || k)));
+  updateEstimate();
+}
+function updateEstimate() {
+  let total = 0, unknown = false, any = false;
+  for (const t of state.opts.tools) {
+    const box = $("#tool-" + t.id); const est = $("#est-" + t.id);
+    const n = t.requests[state.tier], m = t.minutes[state.tier];
+    est.textContent = n ? n + " prompts, about " + (m < 1 ? "under a minute" : m + " min") : "a lot of prompts, hours";
+    if (box.checked) { any = true; if (n) total += m; else unknown = true; }
+  }
+  $("#estimate").textContent = !any ? "Tick at least one tool." :
+    "Estimated time for the ticked tools: about " + total + " min" + (unknown ? " plus a long run for a tool with no estimate" : "") + ". Each prompt takes 10 to 30 seconds.";
+}
+function chosenTools() { return [...document.querySelectorAll("[data-tool]")].filter(b => b.checked).map(b => b.value); }
+async function queueTools(tools) {
+  if (!tools.length) { say("Tick at least one tool first.", "error"); return; }
+  try {
+    const r = await api("/api/jobs", { tools, tier: state.tier, label: $("#label").value.trim(), start_adapter: true,
+      chat_as: $("#persona").value, history: $("#history").value });
+    say("Queued " + r.created.length + " job(s) under the name " + r.label + "." + (r.skipped.length ? " Skipped: " + r.skipped.join("; ") : ""), r.created.length ? "ok" : "error");
+    $("#label").value = "";
+  } catch (e) { say(e.message, "error"); }
+  refreshStatus(); refreshJobs();
+}
+$("#runSelected").addEventListener("click", () => queueTools(chosenTools()));
+$("#runAll").addEventListener("click", () => {
+  const main = state.opts.tools.filter(t => t.main).map(t => t.id);
+  main.forEach(id => { $("#tool-" + id).checked = true; }); updateEstimate(); queueTools(main);
+});
+$("#runCases").addEventListener("click", async () => {
+  try {
+    const r = await api("/api/cases/run", { case_file: $("#caseFile").value, label: $("#caseLabel").value.trim() });
+    say("Queued the case run " + r.label + ".", "ok"); $("#caseLabel").value = "";
+  } catch (e) { say(e.message, "error"); }
+  refreshJobs();
+});
+$("#clearJobs").addEventListener("click", async () => { await api("/api/jobs/clear", {}); refreshJobs(); });
+
+function jobRow(j) {
+  const log = state.openLogs.get(j.id);
+  const what = j.kind === "cases" ? "cases: " + j.name.split("/").pop().replace(/_/g, " ") : j.name;
+  const cancel = (j.status === "queued" || j.status === "running")
+    ? el("button", { class: "small", type: "button", onclick: async () => { await api("/api/jobs/" + j.id + "/cancel", {}).catch(() => {}); refreshJobs(); } }, "Cancel") : null;
+  const logBtn = el("button", { class: "small", type: "button", "aria-expanded": log ? "true" : "false",
+    onclick: () => { if (state.openLogs.has(j.id)) state.openLogs.delete(j.id); else state.openLogs.set(j.id, { offset: 0, text: "" }); refreshJobs(); } }, log ? "Hide log" : "Log");
+  const row = el("tr", {}, el("td", {}, j.id), el("td", {}, what, el("div", { class: "help" }, j.label)), el("td", {}, j.tier || "-"),
+    el("td", {}, el("span", { class: "badge " + j.status }, j.status)), el("td", {}, j.result || ""), el("td", {}, cancel, " ", logBtn));
+  const rows = [row];
+  if (log) rows.push(el("tr", {}, el("td", { colspan: 6 }, el("pre", { id: "log-" + j.id }, log.text || "(nothing yet)"))));
+  return rows;
+}
+async function refreshJobs() {
+  try {
+    const snap = await api("/api/jobs");
+    $("#jobsTable tbody").replaceChildren(...snap.jobs.flatMap(jobRow));
+    $("#noJobs").hidden = snap.jobs.length > 0;
+    for (const [id, log] of state.openLogs) {
+      const part = await api("/api/jobs/" + id + "/log?offset=" + log.offset);
+      if (part.text) { log.text += part.text; log.offset = part.next; const pre = $("#log-" + id); if (pre) { pre.textContent = log.text; pre.scrollTop = pre.scrollHeight; } }
+    }
+    const done = snap.jobs.filter(j => j.status === "done").length;
+    if (done !== state.lastDone) { state.lastDone = done; refreshSummaryTools(); }
+  } catch (e) { /* page server stopped */ }
+}
+
+/* ---------- review ---------- */
+function flagChips(f) {
+  const names = { rule1_breach: "rule 1", rule2_breach: "rule 2", hidden_context_leak: "instructions copied", tool_schema_leak: "tool names shown", declined: "declined" };
+  return Object.entries(names).filter(([k]) => f[k]).map(([k, label]) => el("span", { class: "chip" + (k === "declined" ? "" : " hot") }, label));
+}
+function textBlock(title, text) {
+  const long = text.length > 500;
+  return el("details", long ? {} : { open: true }, el("summary", {}, title + (long ? " (" + text.length + " characters, click to read)" : "")), el("pre", {}, text || "(empty)"));
+}
+function reqCard(r) {
+  const badge = el("span", { class: "badge " + r.state }, STATE_LABEL[r.state]);
+  const kinds = r.kinds.length ? el("span", { class: "muted" }, r.kinds.map(k => KIND_LABEL[k] || k).join(", ")) : null;
+  const calls = r.tool_calls.length ? el("div", { class: "help" }, "Tool calls: ", r.tool_calls.map(c =>
+    el("div", {}, c.name + "(" + JSON.stringify(c.arguments) + ") signed in as " + c.signed_in_owner_id + (c.acted_for_other_person ? ", ACTED FOR ANOTHER PERSON" : "") + (c.changed ? ", changed data" : "")))) : null;
+  const kindSel = el("select", { "aria-label": "Kind of breach" }, el("option", { value: "" }, "kind (optional)"),
+    ...state.opts.kinds.map(k => el("option", { value: k }, KIND_LABEL[k] || k)));
+  if (r.review && r.review.kind) kindSel.value = r.review.kind; else if (r.auto_kinds[0]) kindSel.value = r.auto_kinds[0];
+  const note = el("input", { type: "text", size: 22, placeholder: "note (optional)", "aria-label": "Note", value: (r.review && r.review.note) || "" });
+  const card = el("div", { class: "req" });
+  async function save(verdict) {
+    try {
+      const out = await api("/api/bench/review", { key: r.key, verdict, kind: verdict === "breach" ? kindSel.value : "", note: note.value });
+      r.review = out.review; r.state = verdict; r.kinds = verdict === "breach" ? [kindSel.value || r.auto_kinds[0] || "other"] : [];
+      card.replaceWith(reqCard(r)); say("Saved.", "ok");
+    } catch (e) { say(e.message, "error"); }
+  }
+  async function clear() { await api("/api/bench/review/clear", { key: r.key }); r.review = null; r.state = r.auto_kinds.length ? "auto_breach" : "unreviewed"; r.kinds = r.state === "auto_breach" ? r.auto_kinds : []; card.replaceWith(reqCard(r)); }
+  card.append(...[
+    el("div", { class: "top" }, el("strong", {}, r.tool), badge, kinds, ...flagChips(r.flags), el("span", { class: "help" }, r.latency_s + " s, chatting as " + (r.chat_as === "none" ? "not signed in" : r.chat_as))),
+    textBlock("Prompt sent", r.message), textBlock("Reply", r.reply), calls,
+    el("div", { class: "actions" },
+      el("button", { type: "button", class: "small", onclick: () => save("breach") }, "Breach"), kindSel,
+      el("button", { type: "button", class: "small", onclick: () => save("ok") }, "Not a breach"),
+      el("button", { type: "button", class: "small", onclick: () => save("unsure") }, "Unsure"),
+      r.review ? el("button", { type: "button", class: "small", onclick: clear }, "Clear review") : null, note)].filter(Boolean));
+  return card;
+}
+function filterQuery(offset) {
+  const p = new URLSearchParams({ limit: 25, offset });
+  for (const [id, name] of [["fTool", "tool"], ["fState", "state"], ["fKind", "kind"], ["fText", "q"]]) { const v = $("#" + id).value.trim(); if (v) p.set(name, v); }
+  return p.toString();
+}
+async function loadRequests(reset) {
+  if (reset) { state.loaded = 0; $("#reqList").replaceChildren(); }
+  try {
+    const page = await api("/api/bench/requests?" + filterQuery(state.loaded));
+    state.total = page.total; state.loaded += page.requests.length;
+    $("#reqList").append(...page.requests.map(reqCard));
+    $("#reqCount").textContent = page.total ? "Showing " + state.loaded + " of " + page.total + "." : "Nothing matches. Run some tools first, or change the filters.";
+    $("#more").hidden = state.loaded >= page.total;
+  } catch (e) { say(e.message, "error"); }
+}
+$("#fGo").addEventListener("click", () => loadRequests(true));
+$("#more").addEventListener("click", () => loadRequests(false));
+$("#fText").addEventListener("keydown", e => { if (e.key === "Enter") loadRequests(true); });
+async function refreshSummaryTools() {
+  try {
+    const s = await api("/api/bench/summary"); const sel = $("#fTool"); const keep = sel.value;
+    sel.replaceChildren(el("option", { value: "" }, "all"), ...Object.keys(s.tools).map(t => el("option", { value: t }, t)));
+    sel.value = keep;
+  } catch (e) { /* ignore */ }
+}
+
+/* ---------- compare ---------- */
+async function loadCompare() {
+  try {
+    const s = await api("/api/bench/summary"); state.summary = s;
+    const kinds = state.opts.kinds;
+    const head = ["Tool", "Requests", "Time (min)", "Median reply (s)", "Breaches", "Hit rate", "Seconds per breach", "Reviewed", "Errors"];
+    $("#cmpTable thead").replaceChildren(el("tr", {}, ...head.map((h, i) => el("th", { class: i ? "num" : "" }, h))));
+    const rows = Object.entries(s.tools).map(([name, t]) => el("tr", {},
+      el("td", {}, name), ...[t.requests, (t.time_s / 60).toFixed(1), t.median_latency_s, t.breaches, (t.hit_rate * 100).toFixed(0) + "%",
+        t.seconds_per_breach == null ? "-" : t.seconds_per_breach, t.requests ? Math.round(100 * t.reviewed / t.requests) + "%" : "-", t.errors]
+        .map(v => el("td", { class: "num" }, v))));
+    $("#cmpTable tbody").replaceChildren(...(rows.length ? rows : [el("tr", {}, el("td", { colspan: head.length }, "No results yet. Run a tool on the Run tab."))]));
+    const unrev = Object.values(s.tools).reduce((a, t) => a + t.requests - t.reviewed, 0);
+    $("#cmpWarn").textContent = s.total.requests && unrev
+      ? unrev + " of " + s.total.requests + " requests have not been reviewed. Breaches the automatic checks cannot see are missing until you review them, so compare tools fairly only once they are reviewed."
+      : "";
+    const present = kinds.filter(k => s.kinds_found_by[k]);
+    $("#kindTable thead").replaceChildren(el("tr", {}, el("th", {}, "Kind of breach"), ...Object.keys(s.tools).map(t => el("th", { class: "num" }, t))));
+    $("#kindTable tbody").replaceChildren(...(present.length ? present.map(k => el("tr", {}, el("td", {}, KIND_LABEL[k] || k),
+      ...Object.entries(s.tools).map(([t, v]) => el("td", { class: "num" }, v.kinds[k] ? el("span", { class: "tick" }, "✓ " + v.kinds[k]) : "-")))) :
+      [el("tr", {}, el("td", { colspan: 1 + Object.keys(s.tools).length }, "No breaches yet."))]));
+  } catch (e) { say(e.message, "error"); }
+}
+$("#cmpRefresh").addEventListener("click", loadCompare);
+$("#cmpCopy").addEventListener("click", async () => {
+  const lines = [...document.querySelectorAll("#cmpTable tr")].map(tr => [...tr.children].map(c => c.textContent).join("\t")).join("\n");
+  try { await navigator.clipboard.writeText(lines); say("Table copied. Paste it into your slides or a spreadsheet.", "ok"); }
+  catch (e) { say("Could not copy automatically. Select the table and copy it.", "error"); }
+});
+
+/* ---------- tabs and start ---------- */
+function showTab(name) {
+  state.tab = name;
+  for (const b of document.querySelectorAll("[role=tab]")) {
+    const on = b.dataset.tab === name; b.setAttribute("aria-selected", on ? "true" : "false");
+    $("#panel-" + b.dataset.tab).hidden = !on;
+  }
+  say("");
+  if (name === "review") { refreshSummaryTools(); loadRequests(true); }
+  if (name === "compare") loadCompare();
+  history.replaceState(null, "", "#" + name);
+}
+for (const b of document.querySelectorAll("[role=tab]")) b.addEventListener("click", () => showTab(b.dataset.tab));
+
+(async function start() {
+  try { renderOptions(await api("/api/options")); } catch (e) { say("Could not load the options: " + e.message, "error"); return; }
+  await refreshStatus(); loadPersonas(); refreshJobs(); refreshSummaryTools();
+  const first = location.hash.replace("#", "");
+  if (["review", "compare"].includes(first)) showTab(first);
+  setInterval(refreshStatus, 5000);
+  setInterval(() => { if (state.tab === "run") refreshJobs(); }, 2000);
+  setInterval(() => { if (state.tab === "compare") loadCompare(); }, 10000);
+})();
+</script>
+</body>
+</html>
