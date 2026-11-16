@@ -17,7 +17,16 @@ import os
 import subprocess
 from pathlib import Path
 
-from common import ROOT, base_url, confirm, model_for, summary
+from common import ROOT, base_url, claude_model, confirm, model_for, summary
+
+CLAUDE_URL = "https://api.anthropic.com/v1/"   # Anthropic's OpenAI-compatible endpoint (https://platform.claude.com/docs/en/api/openai-sdk)
+
+
+def attacker_args() -> list[str]:
+    """Claude is the multi-turn attacker when ANTHROPIC_API_KEY is set (and REDTEAM_ATTACKER is not "local"); else the local model."""
+    if os.environ.get("ANTHROPIC_API_KEY") and os.environ.get("REDTEAM_ATTACKER") != "local":
+        return ["--attacker-url", CLAUDE_URL, "--attacker-model", claude_model(), "--attacker-key-env", "ANTHROPIC_API_KEY"]
+    return []
 
 # Rough request counts to the TARGET (single-turn only; multi-turn varies with the attacker).
 ESTIMATE = {"smoke": 2 * (1 + 3), "standard": 5 * (1 + 8) + 5 + 3 * 2 * 3, "full": 5 * (1 + 18) + 5 + 5 * 2 * 5}
@@ -36,13 +45,14 @@ def pyrit_python() -> str:
 def run(target, tag, tier, url, outdir: Path, seed=1, yes=False) -> dict:
     python = pyrit_python()
     confirm(f"pyrit {tier}: about {ESTIMATE[tier]} requests to the {target} target"
-            + ("" if tier == "smoke" else ", plus the local attacker model for the multi-turn attacks (Ollama must be running)")
+            + ("" if tier == "smoke" else (", plus Claude as the multi-turn attacker (paid Claude API)" if attacker_args()
+                                           else ", plus the local attacker model for the multi-turn attacks (Ollama must be running)"))
             + ".", yes)
     outdir.mkdir(parents=True, exist_ok=True)
     out = outdir / f"{tag}_{target}.attacks.json"
     out.unlink(missing_ok=True)
     proc = subprocess.run([python, str(ROOT / "tools" / "pyrit_attacks.py"), "--url", base_url(url, tag),
-                           "--model", model_for(target), "--tier", tier, "--out", str(out)])
+                           "--model", model_for(target), "--tier", tier, "--out", str(out), *attacker_args()])
     if not out.exists():
         return summary("pyrit", tag, target, tier, 0, 0, [f"pyrit_attacks.py exited with code {proc.returncode} and wrote nothing"])
 
@@ -63,5 +73,5 @@ def run(target, tag, tier, url, outdir: Path, seed=1, yes=False) -> dict:
         notes.append("errored, excluded: " + ", ".join(f"{k} {n}" for k, n in errors.items())
                      + " (see the .attacks.json file; multi-turn errors usually mean the local attacker model did not return the JSON PyRIT needs)")
     if "red_teaming" in by_kind or "crescendo" in by_kind or "red_teaming" in errors or "crescendo" in errors:
-        notes.append("multi-turn attacks use the local Llama 3.1 8B as attacker, which is far weaker than the models these attacks were built for")
+        notes.append(f"multi-turn attacks use {claude_model() if attacker_args() else 'the local Llama 3.1 8B'} as attacker")
     return summary("pyrit", tag, target, tier, len(done), flagged, notes)

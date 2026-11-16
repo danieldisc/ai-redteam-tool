@@ -44,7 +44,7 @@ REQUEST_HINTS = {
     "baseline": {"smoke": 27, "standard": 81, "full": 135},
     "scripted": {"smoke": 10, "standard": 72, "full": 120},
     "garak": {"smoke": 36, "standard": 1740, "full": None},
-    "giskard": {"smoke": 7, "standard": 99, "full": 165},
+    "giskard": {"smoke": 5, "standard": 69, "full": 115},
     "inspect": {"smoke": 8, "standard": 117, "full": 195},
     "pyrit": {"smoke": 8, "standard": 74, "full": None},
     "promptfoo": {"smoke": 4, "standard": 340, "full": None},
@@ -52,11 +52,9 @@ REQUEST_HINTS = {
 }
 SECONDS_PER_REQUEST = {"default": 15, "pyrit": 27}   # median reply times seen on the reference machine
 NOTES = {
-    "promptfoo": "Uses a second local model (llama3.1:8b) to write and grade attacks. On a small GPU it can push the chatbot's "
-                 "models out of memory and make everything slow.",
-    "giskard": "Uses a second local model (llama3.1:8b) to write and judge tests. On a small GPU it can push the chatbot's "
-               "models out of memory and make everything slow.",
-    "pyrit": "The multi-turn attacks (standard size and above) also use a second local model. Smoke size does not.",
+    "promptfoo": "Claude writes and grades the attacks through the paid Claude API (needs ANTHROPIC_API_KEY set before the page starts).",
+    "giskard": "Claude judges the replies through the paid Claude API (needs ANTHROPIC_API_KEY set before the page starts).",
+    "pyrit": "The multi-turn attacks (standard size and above) use Claude as the attacker when ANTHROPIC_API_KEY is set, else a local model. Smoke size does not.",
     "garak": "Downloads some detector models from the internet the first time.",
 }
 LABEL = re.compile(r"^[A-Za-z0-9_-]{1,40}$")

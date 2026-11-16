@@ -37,6 +37,7 @@ full = all converters, 5-turn multi-turn on every objective.
 import argparse
 import asyncio
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -97,7 +98,8 @@ async def main_async(args) -> dict:
 
     await initialize_pyrit_async(memory_db_type=IN_MEMORY)
     target = OpenAIChatTarget(endpoint=args.url, model_name=args.model, api_key="not-needed")
-    attacker = OpenAIChatTarget(endpoint=args.attacker_url, model_name=args.attacker_model, api_key="ollama")
+    attacker = OpenAIChatTarget(endpoint=args.attacker_url, model_name=args.attacker_model,
+                                api_key=os.environ.get(args.attacker_key_env, "ollama") if args.attacker_key_env else "ollama")
 
     tier = args.tier
     objectives = OBJECTIVES[:2] if tier == "smoke" else OBJECTIVES
@@ -188,6 +190,7 @@ def main():
     parser.add_argument("--tier", choices=["smoke", "standard", "full"], default="smoke")
     parser.add_argument("--attacker-url", default="http://localhost:11434/v1")
     parser.add_argument("--attacker-model", default="llama3.1:8b")
+    parser.add_argument("--attacker-key-env", help="name of the environment variable that holds the attacker's API key (never the key itself)")
     parser.add_argument("--only", choices=["red_teaming", "crescendo"],
                         help="run just this multi-turn attack on one objective, and print everything")
     parser.add_argument("--objective", type=int, default=0, help="with --only: index into OBJECTIVES (default 0)")
