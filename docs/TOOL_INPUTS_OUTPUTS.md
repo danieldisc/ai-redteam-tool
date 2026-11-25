@@ -7,6 +7,40 @@ project's runners in `tools/` and scripts in `demo/`.
 **How sure each fact is.** "Seen" means the file was produced and read back in a test run against a fake chatbot (not Robin's real one).
 "From code" means read from the source and the project's parser, and not run here.
 
+## What the five tools are, in four groups
+
+Words used here: a **Python file** is a `.py` file you run with `python <file>`. This document says "Python file" throughout, never "script".
+**Claude** means the Claude AI model, used by a tool through its API with your key. Claude is never run on its own as an attacker.
+
+| Group | Tool | What it is | You give it | Needs Claude? |
+|---|---|---|---|---|
+| A. Ready-made attack library | Garak | A menu of built-in attacks (jailbreaks, encodings, leaks). Its multi-turn attack (GOAT) is the exception: it takes a goal | Which attacks to run. For GOAT: a goal | Only for GOAT, where Claude writes each next message |
+| B. Writes the attacks from a description | Promptfoo | Generates test attacks from a description of the chatbot, then runs them (two steps: generate, then evaluate) | A description of the chatbot, and a rule it must not break | Yes, to write the attacks |
+| C. Goal-driven attacker | PyRIT | Sends one goal as a message, or, in multi-turn mode, chats back and forth until the goal is met or the turns run out | One goal sentence, and text that shows it worked | Only for multi-turn, where Claude plays the attacker |
+| D. You write the messages | Inspect AI | Sends the messages you wrote and keeps a log of each reply | The messages, and a rule for success (text the reply must contain) | No |
+| D. You write the messages | Giskard | Sends the messages you wrote, then Claude reads each reply and judges it against your rule | The messages, and a rule written in words | Yes, to judge the replies |
+
+**Inspect AI and Giskard are alike:** in both, you write every attack message, and the tool only sends it and checks the reply. They differ in
+the check. Inspect uses a plain text match and needs no Claude. Giskard asks Claude to judge, so it needs your key.
+
+**No tool decides the verdict.** The tools read only the reply text. The adapter's log, which also sees the chatbot's recorded tool calls, is the
+result (see "Which output counts" below).
+
+### How to start each tool
+
+Give each tool its own virtual environment, because their packages clash. Install, set the Claude key where needed, then run its Python file.
+The exact install lines and versions are in `demo/README.md`. To run all five one after another: `python demo/run_all.py`.
+
+| Tool | Install (see `demo/README.md` for the exact line) | Run | Before it runs |
+|---|---|---|---|
+| Garak | `pip install garak==0.17.0` (large) | `python demo/garak_demo.py` | For GOAT: Claude key, adapter started with `--history replay` |
+| Promptfoo | `pip install pyyaml`, and Node.js 20 or newer | `python demo/promptfoo_demo.py` | Claude key |
+| PyRIT | `pip install pyrit==1.1.0` | `python demo/pyrit_demo.py` (add `--multi` for multi-turn) | Multi-turn: Claude key, adapter with `--history replay` |
+| Inspect AI | `pip install inspect-ai==0.3.276 agent-client-protocol==0.12.1 "openai>=3.1.0"` | `python demo/inspect_demo.py` | Nothing else |
+| Giskard | `pip install "giskard[anthropic]"` | `python demo/giskard_demo.py` | Claude key |
+
+Always first: the chatbot running, then the adapter (`python tools/bench_adapter.py`). All five send through the adapter.
+
 ## 1. What you give each tool
 
 Every tool needs the chatbot's address and a model name. All five get the same address, the adapter, and the same model name, which also says
