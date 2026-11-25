@@ -39,13 +39,17 @@ The table above is our demo. This one is what the tool itself ships. "Checked" m
 | Tool | Ready-made attacks | An AI model writes attacks | Multi-turn methods built in | Attacker model you must supply |
 |---|---|---|---|---|
 | Garak 0.17.0 | Yes: prompt files in `garak/data/` and many probes | Yes | GOAT, FITD, TAP, PAIR, and `atkgen.Tox` | No, each has a default: GOAT a local Qwen3-4B, FITD a NVIDIA-hosted Mixtral, TAP a local Ministral-8B with an OpenAI evaluator (gpt-5-nano), `atkgen` a small local GPT-2. Any can be changed to Claude in the option file |
-| Promptfoo 0.124.0 | Not checked | Yes | Strategies named `crescendo`, `goat`, `hydra`, `custom` and `mischievous-user` are in the code. Not run | Crescendo uses Promptfoo's remote service unless you configure your own attacker (`redteamProvider`). Others not checked |
+| Promptfoo 0.124.0 | Yes: plugins that fetch public datasets from Hugging Face at run time (for example `beavertails`, `donotanswer`, `harmbench`, `cyberseceval`, `xstest`, `toxic-chat`, `aegis`) | Yes | `crescendo`, `custom` and `jailbreak` (iterative): run from your machine with your own attacker model (`redteamProvider`) when remote generation is off. `goat`, `hydra` and `mischievous-user`: only through Promptfoo's own remote service, and they refuse to run when remote generation is off | For the local ones, yes (our demo sets Claude) |
 | PyRIT 1.1.0 | Yes: seed datasets (local and remote) and jailbreak templates | Yes | `RedTeamingAttack`, `CrescendoAttack`, `PAIRAttack`, `TAPAttack`, `ChunkedRequestAttack`, `MultiPromptSendingAttack` | Yes: the multi-turn attacks take an attacker model in their settings |
-| Giskard 3.0.1 | Not checked | Yes: `LLMGenerator`, `UserSimulator` | `UserSimulator`: an AI model plays a user persona for up to a set number of turns (default 3). Whether it reads the chatbot's replies: not checked. Not run | Yes: set a default generator |
+| Giskard 3.0.1 | No: none found in the installed packages. `DatasetInputGenerator` only places a prompt that you supply | Yes: `LLMGenerator` and `UserSimulator` | `UserSimulator`: an AI model plays a user persona for up to a set number of turns (default 3), reads the earlier conversation each turn and stops when it judges the goal reached. The built-in personas are ordinary users (helpful, confused, impatient and so on), so an attacking persona has to be written by you | Yes: set a default generator |
 | Inspect AI 0.3.276 | No | No | None. Its solvers can script a fixed sequence of messages, and its agents loop a model over tools, but there is no built-in attacker that talks to a target | Not applicable |
 
-Two things to keep in mind: a tool's multi-turn methods exist in the code, but we have not run all of them, so do not promise a result from one until it has run
-against the chatbot. And "Not checked" means just that, not "No".
+**Promptfoo and your data.** With default settings Promptfoo uses its remote generation service when `OPENAI_API_KEY` is not set, so the chatbot description and the
+attacks would go to Promptfoo's servers. Our demo turns this off (`PROMPTFOO_DISABLE_REMOTE_GENERATION` and `PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION` set to true) and uses Claude
+as the attacker, which is why `goat`, `hydra` and `mischievous-user` cannot be used in it.
+
+**Nothing here has been run against the real chatbot.** These are facts about what each tool contains, read from its source. Whether a method finds a breach is what the
+first runs will show.
 
 **Inspect AI and Giskard are alike:** in both, you write every attack message, and the tool only sends it and checks the reply. They differ in
 the check. Inspect uses a plain text match and needs no Claude. Giskard asks Claude to judge, so it needs your key.
