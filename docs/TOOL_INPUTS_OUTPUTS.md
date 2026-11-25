@@ -7,18 +7,29 @@ project's runners in `tools/` and scripts in `demo/`.
 **How sure each fact is.** "Seen" means the file was produced and read back in a test run against a fake chatbot (not Robin's real one).
 "From code" means read from the source and the project's parser, and not run here.
 
-## What the five tools are, in four groups
+## What the five tools are: one table
 
-Words used here: a **Python file** is a `.py` file you run with `python <file>`. This document says "Python file" throughout, never "script".
-**Claude** means the Claude AI model, used by a tool through its API with your key. Claude is never run on its own as an attacker.
+Words used here: a **Python file** is a `.py` file you run with `python <file>`. **Claude** means the Claude AI model, used by a tool through its API with
+your key. Claude is never run on its own as an attacker. Each row is a tool *as set up in our demo* (`demo/`), so a tool with two modes has two rows.
 
-| Group | Tool | What it is | You give it | Needs Claude? |
-|---|---|---|---|---|
-| A. Ready-made attack library | Garak | A menu of built-in attacks (jailbreaks, encodings, leaks). Its multi-turn attack (GOAT) is the exception: it takes a goal | Which attacks to run. For GOAT: a goal | Only for GOAT, where Claude writes each next message |
-| B. Writes the attacks from a description | Promptfoo | Generates test attacks from a description of the chatbot, then runs them (two steps: generate, then evaluate) | A description of the chatbot, and a rule it must not break | Yes, to write the attacks |
-| C. Goal-driven attacker | PyRIT | Sends one goal as a message, or, in multi-turn mode, chats back and forth until the goal is met or the turns run out | One goal sentence, and text that shows it worked | Only for multi-turn, where Claude plays the attacker |
-| D. You write the messages | Inspect AI | Sends the messages you wrote and keeps a log of each reply | The messages, and a rule for success (text the reply must contain) | No |
-| D. You write the messages | Giskard | Sends the messages you wrote, then Claude reads each reply and judges it against your rule | The messages, and a rule written in words | Yes, to judge the replies |
+| Tool, mode | Who writes the attack messages | You give it | Attacks per run | Single or multi-turn | Adapts to replies | Needs Claude | Its own output |
+|---|---|---|---|---|---|---|---|
+| Garak, built-in menu | Garak (a fixed list) | The attack families to run | Many | Single-turn | No | No | `report.jsonl` |
+| Garak, GOAT | Claude, one message at a time | A goal | One conversation per goal | Multi-turn | Yes | Yes | `report.jsonl` |
+| Promptfoo | Claude, all before any is sent | A description of the chatbot, and a rule it must not break | Many | Single-turn | No | Yes | `tests.yaml`, `results.json` |
+| PyRIT, single-turn | You (the goal sentence is sent as it is) | A goal, and text that shows it worked | One | Single-turn | No | No | `attacks.json` |
+| PyRIT, multi-turn (`--multi`) | Claude, one message at a time | A goal, and text that shows it worked | One conversation per goal | Multi-turn | Yes | Yes | `attacks.json` |
+| Inspect AI | You | The messages, and text the reply must contain | One per message | Single-turn | No | No | `.eval` log |
+| Giskard | You | The messages, and a rule written in words | One per message | Single-turn | No | Yes, to judge the replies | `.scenarios.json` |
+
+How to read the columns:
+- **Who writes the attack messages** is the "attack generation" step. Garak's built-in menu and Promptfoo make attacks for you. In the other rows you write the
+  message or the goal.
+- **Adapts to replies** is Yes only when the next message is written after reading the chatbot's last reply. Promptfoo writes its whole batch before the chatbot
+  answers anything, so it does not adapt.
+- **Single-turn** means each attack is one message in a new conversation. **Multi-turn** means a conversation of several messages. Inspect AI has no built-in
+  multi-turn. This column describes our demo setup, not everything a tool could do.
+- Garak's built-in menu cannot use grey knowledge, so it is the control. Only GOAT takes a goal.
 
 **Inspect AI and Giskard are alike:** in both, you write every attack message, and the tool only sends it and checks the reply. They differ in
 the check. Inspect uses a plain text match and needs no Claude. Giskard asks Claude to judge, so it needs your key.
