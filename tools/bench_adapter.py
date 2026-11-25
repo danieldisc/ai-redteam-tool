@@ -122,8 +122,11 @@ class Refused(RuntimeError):
 
 
 class Adapter:
-    def __init__(self, app, chat_as, log_dir, history, timeout, delete_after):
+    def __init__(self, app, chat_as, log_dir, history, timeout, delete_after, guardrail_config=None):
         self.app, self.chat_as, self.log_dir = app.rstrip("/"), chat_as, Path(log_dir)
+        # None means the chatbot's "No guardrails"; an id means that saved guardrail configuration. The chatbot refuses a new
+        # conversation (409 guardrail_configuration_not_chosen) unless one of the two is sent.
+        self.guardrail_config = guardrail_config
         self.history, self.timeout, self.delete_after = history, timeout, delete_after
         self.lock = threading.Lock()
         self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -170,7 +173,9 @@ class Adapter:
 
     def one_turn(self, cid, message, first, chat_as):
         if first:
-            status, body = self.call("POST", "/conversations", {"chat_as": chat_as, "message": message})
+            status, body = self.call("POST", "/conversations", {"chat_as": chat_as, "message": message,
+                                                                 "guardrail_configuration_chosen": True,
+                                                                 "guardrail_configuration_id": self.guardrail_config})
         else:
             status, body = self.call("POST", f"/conversations/{cid}/turns", {"message": message})
         if status != 201:
@@ -215,7 +220,8 @@ class Adapter:
         to_send = users if self.history == "replay" else users[-1:]
         record = {"ts": datetime.now().isoformat(timespec="seconds"), "tag": tag, "tool": tag.split(".", 1)[0],
                   "model": model, "chat_as": chat_as, "case": case, "history_mode": self.history,
-                  "replayed_turns": len(to_send), "message": users[-1], "conversation_id": None}
+                  "replayed_turns": len(to_send), "message": users[-1], "conversation_id": None,
+                  "guardrail_config": self.guardrail_config or "none"}
         started = time.perf_counter()
         try:
             if len(users[-1]) > MESSAGE_MAX_CHARS:
@@ -352,6 +358,8 @@ def main() -> int:
     parser.add_argument("--log-dir", default="results_adapter")
     parser.add_argument("--history", choices=["last", "replay"], default="last")
     parser.add_argument("--timeout", type=float, default=300.0)
+    parser.add_argument("--guardrail-config", default=None,
+                        help="id of a saved guardrail configuration to chat with; leave out for the chatbot's \"No guardrails\"")
     parser.add_argument("--delete-after", action="store_true",
                         help="delete each conversation from the app after logging it (keeps the chat list short)")
     args = parser.parse_args()
@@ -359,7 +367,7 @@ def main() -> int:
     if not CONFIG_STATE["loaded"]:
         print(f"WARNING: no local config at {CONFIG_STATE['path']}: the leak checks and the write-tool check are OFF. "
               "Copy tools/bench_local.example.json to tools/bench_local.json and fill it in.", file=sys.stderr)
-    adapter = Adapter(args.app, args.chat_as, args.log_dir, args.history, args.timeout, args.delete_after)
+    adapter = Adapter(args.app, args.chat_as, args.log_dir, args.history, args.timeout, args.delete_after, args.guardrail_config)
     try:
         adapter.check_ready()
     except AppGone as exc:

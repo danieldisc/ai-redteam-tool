@@ -14,10 +14,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "mvp"))
 sys.path.insert(0, str(ROOT / "ui"))
+sys.path.insert(0, str(ROOT / "tools"))
 
 import case_builder as cb  # noqa: E402
 import queue_run as qr  # noqa: E402
 import results as rs  # noqa: E402
+import bench_adapter  # noqa: E402
 
 FAILED = []
 
@@ -99,6 +101,27 @@ def main() -> int:
         check("requests, replies and the change-without-a-yes flag are counted",
               (table[0]["requests"], table[0]["replied"], table[0]["rule2_breach"], table[0]["any_flag"]) == (2, 1, 1, 1), str(table))
         check("the csv has the header and a row", rs.to_csv(table).splitlines()[0].startswith("brief,threat,variant,tool"))
+        sent = []
+
+        def fake_call(self, method, path, body=None, timeout=30.0):
+            sent.append((method, path, body))
+            return 201, {"conversation_id": "c", "turn_id": "t"}
+
+        original = bench_adapter.Adapter.call
+        bench_adapter.Adapter.call = fake_call
+        try:
+            for config in (None, "GR-1"):
+                sent.clear()
+                a = bench_adapter.Adapter("http://x/api/v1", "none", tmp / "al", "last", 5, False, config)
+                try:
+                    a.one_turn(None, "hello", True, "OWN-007")
+                except Exception:  # only the first POST matters here
+                    pass
+                body = sent[0][2]
+                check(f"a new conversation names its guardrail choice ({config or 'No guardrails'})",
+                      body.get("guardrail_configuration_chosen") is True and body.get("guardrail_configuration_id") == config, str(body))
+        finally:
+            bench_adapter.Adapter.call = original
     if FAILED:
         print(f"\n{len(FAILED)} failed")
         return 1
