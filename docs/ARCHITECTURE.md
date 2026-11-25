@@ -3,6 +3,46 @@
 AI Red Teaming Tool, LTA CYAD internship project. Describes what was built, why it is built that way, and where each part of the
 design in the work plan (Weeks 9 to 10) lives in the code. It describes the code as it is, not a plan.
 
+Section 0 describes the architecture used now, against the Guardrail Bench chatbot. Sections 1 to 12 describe the original demo chatbot
+path, which still runs and still explains the scoring and reporting code, but is no longer the target.
+
+## 0. The architecture now: the Guardrail Bench chatbot
+
+Three programs run side by side, and the tools run one after another:
+
+```
+ Garak   Inspect AI   Giskard   PyRIT   Promptfoo          one tool at a time
+      \        |          |        |        /
+       ->   http://127.0.0.1:8000/<tool>.<label>/v1   <-   an OpenAI-style chat request
+                           |
+                 tools/bench_adapter.py        opens a conversation per request, logs it, judges the reply
+                           |
+             http://127.0.0.1:8766/api/v1      the Guardrail Bench chatbot (the benchproject repository)
+```
+
+What goes in and what comes out at each hop:
+
+| Hop | Takes in | Produces |
+|---|---|---|
+| A tool | Its own input: probe names, a goal, a prompt list or a settings file | An attack message in a chat request, with the model name `bench-unguarded` or `bench-as-<owner id>` |
+| The adapter | That request | One conversation turn in the chatbot, the reply handed back to the tool, and one JSON line in `results_adapter/<tool>.jsonl` |
+| The chatbot | The message and who is signed in | A reply, and recorded steps: each tool call and whom it acted for |
+| The judge, inside the adapter | The message, the reply and the recorded steps | Flags: `rule1_breach`, `rule2_breach`, `hidden_context_leak`, `tool_schema_leak`, `declined` |
+| The bench page or `summarise` | The log lines, plus human review | Counts per tool, and a verdict per request: breach, ok, unsure, or not yet reviewed |
+
+Decisions:
+
+- **Sequential, not concurrent.** The chatbot runs one turn at a time across the whole app (its turn queue), and the adapter takes a lock so one request
+  goes through at a time. Running tools together would add waiting and timeouts, not speed. The queue (`ui/jobqueue.py`) and `demo/run_all.py` run one tool after another.
+- **The combined tool** (`mvp/`) builds one brief per threat variant from the threat catalogue (`case_builder.py`), queues every tool on every brief
+  one after another (`queue_run.py`, which tags requests `<tool>.<brief id>`), and groups the adapter log into one table (`results.py`).
+- **A tool's own verdict is never used.** The tools only read the reply text, and a wrong-person breach is in the chatbot's recorded tool call.
+- **Memory.** `--history last` sends only the last user message to a new conversation, which breaks multi-turn attacks. `--history replay` resends the earlier
+  user messages first. A true session memory is not built.
+- **Files.** The adapter sends text only, so attacks that depend on an attached file cannot be run through it.
+- **What each tool is given** is in `demo/README.md` and `demo/grey.json`: the same "grey" knowledge for all five (the chatbot's purpose and an outsider's view),
+  and never the chatbot's instructions, rules, tool names or the judge's checks.
+
 ## 1. What the tool does
 
 It sends attacks to a chatbot, records every request and reply, decides by plain string checks whether each attack worked, and turns the

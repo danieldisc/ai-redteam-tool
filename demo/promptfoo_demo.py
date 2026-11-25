@@ -15,7 +15,7 @@ from pathlib import Path
 
 import yaml
 
-pack = json.loads(Path(__file__).with_name("grey.json").read_text(encoding="utf-8"))
+pack = json.loads(Path(os.environ.get("DEMO_PACK") or Path(__file__).with_name("grey.json")).read_text(encoding="utf-8"))
 adapter = os.environ.get("DEMO_ADAPTER", "http://127.0.0.1:8000")
 out = Path(__file__).parent / "logs" / "promptfoo"
 out.mkdir(parents=True, exist_ok=True)
@@ -30,7 +30,7 @@ if not shutil.which("npx") and not shutil.which("npx.cmd"):
 npx = shutil.which("npx") or shutil.which("npx.cmd")
 
 target = {"id": "openai:chat:" + pack["persona"]["model"], "label": pack["persona"]["model"],
-          "config": {"apiBaseUrl": adapter + "/promptfoo.demo/v1", "apiKey": "not-needed", "max_tokens": 150}}
+          "config": {"apiBaseUrl": adapter + "/promptfoo." + os.environ.get("DEMO_LABEL", "demo") + "/v1", "apiKey": "not-needed", "max_tokens": 150}}
 config = {
     "targets": [target],
     "prompts": ["{{prompt}}"],

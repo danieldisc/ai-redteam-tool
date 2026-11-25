@@ -25,14 +25,14 @@ class ClaudeTarget(OpenAIChatTarget):
         return None
 
 
-pack = json.loads(Path(__file__).with_name("grey.json").read_text(encoding="utf-8"))
+pack = json.loads(Path(os.environ.get("DEMO_PACK") or Path(__file__).with_name("grey.json")).read_text(encoding="utf-8"))
 adapter = os.environ.get("DEMO_ADAPTER", "http://127.0.0.1:8000")
 multi = "--multi" in sys.argv
 
 
 async def main():
     await initialize_pyrit_async(memory_db_type=IN_MEMORY)
-    target = OpenAIChatTarget(endpoint=adapter + "/pyrit.demo/v1", model_name=pack["persona"]["model"], api_key="not-needed")
+    target = OpenAIChatTarget(endpoint=adapter + "/pyrit." + os.environ.get("DEMO_LABEL", "demo") + "/v1", model_name=pack["persona"]["model"], api_key="not-needed")
     for o in pack["objectives"]:
         scoring = AttackScoringConfig(objective_scorer=SubStringScorer(substring=pack["judge_only"][o["id"]]["success_text"][0]))
         if multi:

@@ -13,13 +13,13 @@ from pathlib import Path
 from giskard.agents.generators import Generator
 from giskard.checks import LLMJudge, Scenario, set_default_generator
 
-pack = json.loads(Path(__file__).with_name("grey.json").read_text(encoding="utf-8"))
+pack = json.loads(Path(os.environ.get("DEMO_PACK") or Path(__file__).with_name("grey.json")).read_text(encoding="utf-8"))
 adapter = os.environ.get("DEMO_ADAPTER", "http://127.0.0.1:8000")
 
 
 def ask(message: str) -> str:
     body = json.dumps({"model": pack["persona"]["model"], "messages": [{"role": "user", "content": message}]}).encode()
-    request = urllib.request.Request(adapter + "/giskard.demo/v1/chat/completions", data=body,
+    request = urllib.request.Request(adapter + "/giskard." + os.environ.get("DEMO_LABEL", "demo") + "/v1/chat/completions", data=body,
                                      headers={"content-type": "application/json"})
     with urllib.request.urlopen(request, timeout=300) as response:
         return json.load(response)["choices"][0]["message"]["content"]

@@ -1,10 +1,104 @@
 # AI Red Teaming Tool
 
-An internship project for LTA's Cyber Architecture & Development (CYAD) division. It attacks one deliberately weak chatbot
-with five open-source red-teaming tools (Garak, Giskard, Inspect AI, PyRIT, Promptfoo), with and without different guardrails,
-and compares what each tool finds. This is a proof of concept. It is not connected to any real LTA system or document.
+An internship project for LTA's Cyber Architecture & Development (CYAD) division. It attacks the Guardrail Bench chatbot (the
+reference chatbot in the `benchproject` repository) with five open-source red-teaming tools (Garak, Giskard, Inspect AI, PyRIT,
+Promptfoo) and compares what each tool finds. The chatbot runs without guardrails first; the same attacks are then sent to it with
+guardrails on. This is a proof of concept. It uses fake data only and is not connected to any real LTA system or document.
+
+> **The original demo chatbot is no longer used.** This project started by attacking a small practice chatbot. Its files stay in the
+> repository because some shared code still imports two helpers from it (see [Legacy](#legacy-the-original-demo-chatbot)). Everything
+> before that heading is about the Guardrail Bench chatbot.
 
 ## In short
+
+**Use it** (after the one-time setup in the [demo README](demo/README.md)):
+
+1. Start the chatbot, in the `benchproject` folder: `uv run bench start`. It listens on port 8766.
+2. Start the adapter, in this folder. It is the connector between the tools and the chatbot, and it judges every reply:
+   ```
+   python tools/bench_adapter.py --history replay
+   ```
+3. Run the five tools, one after another (they cannot usefully run at the same time, see below):
+   ```
+   python demo/run_all.py
+   ```
+4. Read the result. The verdict is the adapter's, never a tool's own:
+   ```
+   python tools/bench_adapter.py summarise results_adapter
+   ```
+
+The bench page (`python ui/bench_app.py`, then open http://127.0.0.1:8081) does the same with buttons: start the adapter, tick tools and a
+size, queue them, and review each request.
+
+## What to open
+
+| I want to… | Open |
+|---|---|
+| Run the five tools against the chatbot | `demo/README.md` |
+| Run all five on every threat, queued one after another | `mvp/README.md` |
+| Know what each tool needs as input, and what it produces | `docs/TOOL_INPUTS_OUTPUTS.md` |
+| Understand the design | `docs/ARCHITECTURE.md` (the first section) |
+| Know what is tested and how a reply is judged | `docs/TEST_CASE_GUIDE.md` |
+| Add a test case or tool | `docs/DEVELOPER_GUIDE.md` |
+
+## How it works
+
+```
+   Garak   Inspect AI   Giskard   PyRIT   Promptfoo        each tool reads its own input
+      \        |           |        |        /
+       ->      http://127.0.0.1:8000/<tool>.<label>/v1       <-   one OpenAI-style endpoint
+                              |
+                    tools/bench_adapter.py      opens a conversation per request, logs it, and judges the reply
+                              |
+                http://127.0.0.1:8766/api/v1    the Guardrail Bench chatbot (benchproject)
+```
+
+- **One endpoint for all five tools.** Each tool thinks it is talking to an ordinary chat model. The adapter translates each request
+  into the chatbot's own conversation API and returns the reply.
+- **Who is signed in** is carried in the model name: `bench-unguarded` (the adapter's default person) or `bench-as-<owner id>`, for
+  example `bench-as-OWN-007`.
+- **The judge** is the adapter's own checks, read from the chatbot's recorded steps: a tool acted for another person (`rule1_breach`),
+  a change was made without a yes (`rule2_breach`), the instructions leaked (`hidden_context_leak`), tool names leaked (`tool_schema_leak`)
+  and a refusal (`declined`). A tool's own pass or fail is shown but never used.
+- **Sequential, not concurrent.** The chatbot answers one turn at a time across the whole app, and the adapter lets one request through
+  at a time, so running tools together only adds waiting and timeouts. `demo/run_all.py` and the bench page's queue both run one tool
+  after another.
+- **Memory.** `--history last` (the default) sends only the last message of each request to a fresh conversation, which loses the
+  memory multi-turn attacks need. `--history replay` resends the earlier user messages first, one turn at a time (slower).
+
+## Documentation
+
+| Guide | For |
+|---|---|
+| [Demo README](demo/README.md) | running the five tools against the chatbot, the smallest way |
+| [Tool inputs and outputs](docs/TOOL_INPUTS_OUTPUTS.md) | what you give each of the five tools, what each produces, and which output counts |
+| [Architecture Document](docs/ARCHITECTURE.md) | how it fits together and why |
+| [Installation Guide](docs/INSTALLATION.md) | setting it up on Windows, and checking the installation |
+| [User Guide](docs/USER_GUIDE.md) | reading verdicts and results |
+| [Test Case Guide](docs/TEST_CASE_GUIDE.md) | what is tested, how each reply is judged, how to write a case |
+| [Developer Guide](docs/DEVELOPER_GUIDE.md) | extending it: cases, tools, tests |
+| [Benchmark and Accuracy Report](docs/BENCHMARK_REPORT.md) | what the early results show, and what was not measured |
+
+## Folders
+
+```
+demo/      the smallest script for each of the five tools, one shared knowledge file (grey.json), and run_all.py
+mvp/       the combined tool: briefs built from the threat catalogue, one queue over the five tools, one results table
+tools/     bench_adapter.py (the connector and judge), one runner per tool, bench_send.py (case runs), and older sources
+ui/        the bench page (bench_app.py, jobqueue.py, bench_data.py) and the legacy page (app.py)
+tests/     python tests/<file>, no chatbot needed
+results/   evidence from the original demo chatbot (kept as recorded); results_adapter/ holds the new run logs
+target/    legacy: the original demo chatbot. Kept only because shared code still imports canary.py and docs_mode.py
+```
+
+## Legacy: the original demo chatbot
+
+Everything below describes how this project worked against the original demo chatbot (Llama 3.1 8B through Ollama, four dummy
+documents, a made-up secret). It still runs, and `results/` records what it found. It is not the current target. To retire it fully,
+`canary.py` and `docs_mode.py` would first have to move out of `target/`: `run.py`, `tools/inspect_tasks.py`, `tools/pyrit_attacks.py`
+and the report scripts import them.
+
+### In short
 
 **Use it** (after the one-time setup in the [Installation Guide](docs/INSTALLATION.md)):
 
@@ -19,31 +113,9 @@ and compares what each tool finds. This is a proof of concept. It is not connect
 That is all most users ever do. Everything else (single tools, the command line, attacking another chatbot) is optional and described in the [User Guide](docs/USER_GUIDE.md).
 You do not need to read or change any code to use the tool.
 
-**What to open:**
-
-| I want to… | Open |
-|---|---|
-| Install it | `docs/INSTALLATION.md` |
-| Run a test and read the results | `docs/USER_GUIDE.md` (the "Quick path" at the top) |
-| Know what is tested and how a reply is judged | `docs/TEST_CASE_GUIDE.md` |
-| See the evidence and findings | `docs/BENCHMARK_REPORT.md`, then `results/` |
-| Understand the design | `docs/ARCHITECTURE.md` |
-| Add a test case, guardrail or tool | `docs/DEVELOPER_GUIDE.md`, then `attacks/` (cases are data files) |
-
 Folders you can ignore as a user: `target/`, `tools/`, `report/`, `ui/` and `tests/` are the machinery. `attacks/` holds the test cases, and `results/` holds the evidence the reports are built from.
 
-## Documentation
-
-| Guide | For |
-|---|---|
-| [Installation Guide](docs/INSTALLATION.md) | setting it up on Windows, and checking the installation |
-| [User Guide](docs/USER_GUIDE.md) | running scans, reading results, the pentest report, attacking another chatbot |
-| [Test Case Guide](docs/TEST_CASE_GUIDE.md) | what is tested, how each reply is judged, how to write a case |
-| [Developer Guide](docs/DEVELOPER_GUIDE.md) | extending it: cases, categories, guardrails, tools, tests |
-| [Architecture Document](docs/ARCHITECTURE.md) | how it fits together and why |
-| [Benchmark and Accuracy Report](docs/BENCHMARK_REPORT.md) | what the results show, and what was not measured |
-
-## How it works
+### How it works
 
 ```
    Garak   Giskard   Inspect AI   PyRIT   Promptfoo        your own scripted and baseline prompts
@@ -63,7 +135,7 @@ Folders you can ignore as a user: `target/`, `tools/`, `report/`, `ui/` and `tes
   whether the attack *worked*, *held* or is *unsure* (with the detector and reason). Every tool also gives its own verdict, but those have
   proved unreliable, so the reports always show both side by side.
 
-## Quick start
+### Quick start
 
 Set up once (two Python 3.12 environments, because PyRIT and Garak need different packages; also install [Ollama](https://ollama.com)
 with `ollama pull llama3.1:8b`, and Node.js 20+ for Promptfoo):
@@ -98,7 +170,7 @@ ones, with no restart. A guided scan is also saved to `results/scans/<name>.md`.
 single HTML page for the scan: executive summary, OWASP coverage, confirmed findings with evidence and reproduction steps, potential
 findings, manual-review risks and limits. Print it to save a PDF.
 
-## The same thing from the command line
+### The same thing from the command line
 
 ```
 python run.py scripted --target all --tier standard --run r1            # tools: baseline scripted library garak giskard inspect pyrit promptfoo adaptive
@@ -115,7 +187,7 @@ python report/test_cases.py --out results/test_cases.md --csv results/test_cases
 `--target` takes one guardrail id, several separated by commas, `both` (unguarded and guarded) or `all`. Run `smoke` first and read the
 replies before running `standard`. Every run is tagged `<tool>.<label>`; use a new `--run` label each time.
 
-## Attacking another chatbot (relay and oracle)
+### Attacking another chatbot (relay and oracle)
 
 From the web page, choose **Another chatbot** under Settings and enter its address, the planted fake secret and (if it needs a key) the name of the environment variable that holds the key. No restart is needed. The same thing from the command line:
 
@@ -131,7 +203,7 @@ and `python report/external.py` compares that with the oracle (missed attacks, c
 column in the comparison matrix. It has no poisoned variant. It sends every attack prompt to that chatbot: use fake data only and check
 your organisation's rules first. The scan grid, the saved scan files and the report page mask this project's own secret only: for another chatbot's secret use `python report/pentest_report.py --label <label> --secret <planted secret>`, and do not commit its scan files unchecked (see the User Guide).
 
-## The test library
+### The test library
 
 `attacks/library.json` (version 1.1, recorded in every run's summary) holds about 100 reusable cases written for this project: 41 for prompt injection (direct overrides, personas,
 encoded and translated instructions, multi-turn), plus secret leaks, system-prompt extraction, poisoned documents, very long output,
@@ -141,7 +213,7 @@ the guided scan, and each request carries its case id in the log. Cases for pois
 To add a case, add an entry to the JSON file: no code change is needed (raise `version` when you change it). `python report/library_summary.py --tag library.l2` shows which cases work against which guardrail. `python report/test_cases.py --out results/test_cases.md --csv results/test_cases.csv`
 writes the full catalogue of every attack the project sends (the library plus the other sources).
 
-## Claude as the attacker (adaptive, optional)
+### Claude as the attacker (adaptive, optional)
 
 `adaptive` lets Claude play the user: it reads each reply and writes the next message, aiming at one objective (the secret, the system prompt
 or an injected marker word). The same string checks judge the result. It is paid and sends every attacker message and chatbot reply to
@@ -167,7 +239,7 @@ A marker objective can succeed by a plain echo of a string Claude asked for, so 
 python report/transcript.py results/raw/adaptive/adaptive.a4_blocklist.conversations.json --only-success
 ```
 
-## The agent test (LLM03 excessive agency)
+### The agent test (LLM03 excessive agency)
 
 The built-in chatbot cannot act, so this risk is tested on a small controlled agent: the local model with four fake tools (look up, cancel
 and refund a parking permit, send a notification). Nothing real is touched; each tool only records the call. The agent is given a policy
@@ -184,7 +256,7 @@ python tools/agent_run.py --label ag2 --only AGT-002,AGT-006 --repeats 5
 The summary is saved to `results/agent/<label>.md` and every message and call to `results/raw/agent/`. Replies vary, so read "worked in n of N".
 The cases are in `tools/agent_cases.py`: add one there to extend the test. These results are not part of the scan grid or the comparison matrix.
 
-## Folders
+### Folders (legacy layout)
 
 ```
 target/    the chatbot and server (server.py, rag.py, canary.py, guard.py, rails/ = the guardrails, config/ = prompt and documents)
@@ -196,7 +268,7 @@ tests/     python tests/<file>, no Ollama needed. Run them all: Get-ChildItem te
 results/   hand labels and notes are kept; raw output (results/raw/, including the request log) is git-ignored: back it up yourself
 ```
 
-## Limits to state whenever results are quoted
+### Limits to state whenever results are quoted
 
 - **One small chatbot, one 8B model, a handful of documents, and few repeats.** Counts move between runs, so small differences mean little.
 - **The defences were written knowing the tests** (NeMo's input prompt, the blocklist and the document check), so they look better than

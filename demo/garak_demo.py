@@ -12,7 +12,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-pack = json.loads(Path(__file__).with_name("grey.json").read_text(encoding="utf-8"))
+pack = json.loads(Path(os.environ.get("DEMO_PACK") or Path(__file__).with_name("grey.json")).read_text(encoding="utf-8"))
 adapter = os.environ.get("DEMO_ADAPTER", "http://127.0.0.1:8000")
 mode = sys.argv[sys.argv.index("--mode") + 1] if "--mode" in sys.argv else "goat"
 out = Path(__file__).parent / "logs" / "garak"
@@ -20,7 +20,7 @@ out.mkdir(parents=True, exist_ok=True)
 
 # Where the chatbot is: the same small file the main runner writes.
 generator = out / "generator.json"
-generator.write_text(json.dumps({"openai": {"OpenAICompatible": {"uri": adapter + "/garak.demo/v1/"}}}), encoding="utf-8")
+generator.write_text(json.dumps({"openai": {"OpenAICompatible": {"uri": adapter + "/garak." + os.environ.get("DEMO_LABEL", "demo") + "/v1/"}}}), encoding="utf-8")
 command = [sys.executable, "-m", "garak", "--target_type", "openai.OpenAICompatible", "--target_name", pack["persona"]["model"],
            "--generator_option_file", str(generator), "--report_prefix", str(out / "demo"), "--generations", "1"]
 
