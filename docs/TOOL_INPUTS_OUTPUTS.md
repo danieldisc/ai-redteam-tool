@@ -1,7 +1,7 @@
 # Inputs and outputs of the five tools
 
 For the whole team. It says what you give each tool, what each one produces, and which output counts. It was checked against the source
-of the pinned versions (Garak 0.17.0, Inspect AI 0.3.276, Giskard 3.0.1 with giskard-checks 1.0.5, PyRIT 1.1.0, Promptfoo 0.124.0) and this
+of the pinned versions (Garak 0.17.0, Inspect AI 0.3.276, Giskard 3.0.1 (with the giskard-checks package installed alongside it), PyRIT 1.1.0, Promptfoo 0.124.0) and this
 project's runners in `tools/` and scripts in `demo/`.
 
 **How sure each fact is.** "Seen" means the file was produced and read back in a test run against a fake chatbot (not Robin's real one).
@@ -10,17 +10,18 @@ project's runners in `tools/` and scripts in `demo/`.
 ## What the five tools are: one table
 
 Words used here: a **Python file** is a `.py` file you run with `python <file>`. **Claude** means the Claude AI model, used by a tool through its API with
-your key. Claude is never run on its own as an attacker. Each row is a tool *as set up in our demo* (`demo/`), so a tool with two modes has two rows.
+your key. Claude is never run on its own as an attacker. Each row is a tool *as set up in our demo* (`demo/`), so a tool with two modes has two rows. What each tool can do beyond the demo is in the next table.
 
 | Tool, mode | Who writes the attack messages | You give it | Attacks per run | Single or multi-turn | Adapts to replies | Needs Claude | Its own output |
 |---|---|---|---|---|---|---|---|
 | Garak, built-in menu | Garak (a fixed list) | The attack families to run | Many | Single-turn | No | No | `report.jsonl` |
-| Garak, GOAT | Claude, one message at a time | A goal | One conversation per goal | Multi-turn | Yes | Yes | `report.jsonl` |
+| Garak, GOAT | An attacker model, one message at a time (we set it to Claude) | A goal | One conversation per goal | Multi-turn | Yes | Yes, because we set it. Garak's own default is a local Hugging Face model | `report.jsonl` |
 | Promptfoo | Claude, all before any is sent | A description of the chatbot, and a rule it must not break | Many | Single-turn | No | Yes | `tests.yaml`, `results.json` |
 | PyRIT, single-turn | You (the goal sentence is sent as it is) | A goal, and text that shows it worked | One | Single-turn | No | No | `attacks.json` |
 | PyRIT, multi-turn (`--multi`) | Claude, one message at a time | A goal, and text that shows it worked | One conversation per goal | Multi-turn | Yes | Yes | `attacks.json` |
 | Inspect AI | You | The messages, and text the reply must contain | One per message | Single-turn | No | No | `.eval` log |
 | Giskard | You | The messages, and a rule written in words | One per message | Single-turn | No | Yes, to judge the replies | `.scenarios.json` |
+
 
 How to read the columns:
 - **Who writes the attack messages** is the "attack generation" step. Garak's built-in menu and Promptfoo make attacks for you. In the other rows you write the
@@ -30,6 +31,21 @@ How to read the columns:
 - **Single-turn** means each attack is one message in a new conversation. **Multi-turn** means a conversation of several messages. Inspect AI has no built-in
   multi-turn. This column describes our demo setup, not everything a tool could do.
 - Garak's built-in menu cannot use grey knowledge, so it is the control. Only GOAT takes a goal.
+
+### What each tool has built in (checked in the pinned versions' source)
+
+The table above is our demo. This one is what the tool itself ships. "Checked" means read in the installed or downloaded package of the pinned version.
+
+| Tool | Ready-made attacks | An AI model writes attacks | Multi-turn methods built in | Attacker model you must supply |
+|---|---|---|---|---|
+| Garak 0.17.0 | Yes: prompt files in `garak/data/` and many probes | Yes | GOAT, FITD, TAP, PAIR, and `atkgen.Tox` | No, each has a default: GOAT a local Qwen3-4B, FITD a NVIDIA-hosted Mixtral, TAP a local Ministral-8B with an OpenAI evaluator (gpt-5-nano), `atkgen` a small local GPT-2. Any can be changed to Claude in the option file |
+| Promptfoo 0.124.0 | Not checked | Yes | Strategies named `crescendo`, `goat`, `hydra`, `custom` and `mischievous-user` are in the code. Not run | Crescendo uses Promptfoo's remote service unless you configure your own attacker (`redteamProvider`). Others not checked |
+| PyRIT 1.1.0 | Yes: seed datasets (local and remote) and jailbreak templates | Yes | `RedTeamingAttack`, `CrescendoAttack`, `PAIRAttack`, `TAPAttack`, `ChunkedRequestAttack`, `MultiPromptSendingAttack` | Yes: the multi-turn attacks take an attacker model in their settings |
+| Giskard 3.0.1 | Not checked | Yes: `LLMGenerator`, `UserSimulator` | `UserSimulator`: an AI model plays a user persona for up to a set number of turns (default 3). Whether it reads the chatbot's replies: not checked. Not run | Yes: set a default generator |
+| Inspect AI 0.3.276 | No | No | None. Its solvers can script a fixed sequence of messages, and its agents loop a model over tools, but there is no built-in attacker that talks to a target | Not applicable |
+
+Two things to keep in mind: a tool's multi-turn methods exist in the code, but we have not run all of them, so do not promise a result from one until it has run
+against the chatbot. And "Not checked" means just that, not "No".
 
 **Inspect AI and Giskard are alike:** in both, you write every attack message, and the tool only sends it and checks the reply. They differ in
 the check. Inspect uses a plain text match and needs no Claude. Giskard asks Claude to judge, so it needs your key.
