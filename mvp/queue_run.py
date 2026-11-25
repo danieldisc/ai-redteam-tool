@@ -5,7 +5,7 @@
 
 Why one at a time: the chatbot answers one turn at a time across the whole app, and the adapter takes a lock, so running
 tools together only adds waiting and timeouts. A job is one tool on one brief. A job that fails is recorded and the queue
-carries on. Start the chatbot and the adapter first (see README.md). Each tool may live in its own virtual environment:
+carries on; a runner may also return "skipped". Start the chatbot and the adapter first (see README.md). Each tool may live in its own virtual environment:
 set DEMO_PYTHON_<TOOL> to that environment's Python. Requests reach the adapter as <tool>.<brief id>, so the adapter log
 says which brief each request belongs to. Afterwards:  python mvp/results.py
 """
@@ -33,6 +33,12 @@ def write_status(path: Path, jobs: list) -> None:
     path.write_text(json.dumps({"updated": time.strftime("%Y-%m-%dT%H:%M:%S"), "jobs": jobs}, indent=1), encoding="utf-8")
 
 
+def default_runner(job, pack, env):
+    """Runs the tool's demo Python file in its own environment (DEMO_PYTHON_<TOOL>) and returns its exit code."""
+    python = os.environ.get(f"DEMO_PYTHON_{job['tool'].upper()}", sys.executable)
+    return subprocess.run([python, str(HERE.parent / "demo" / f"{job['tool']}_demo.py")], env=env).returncode
+
+
 def run_queue(briefs: list, tools: list, workdir: Path, runner=None) -> list:
     """Runs the jobs in order. runner(job, pack_path, env) returns an exit code; the default launches the demo script."""
     workdir.mkdir(parents=True, exist_ok=True)
@@ -42,10 +48,6 @@ def run_queue(briefs: list, tools: list, workdir: Path, runner=None) -> list:
         packs[b["brief_id"]].write_text(json.dumps(b, ensure_ascii=False, indent=1), encoding="utf-8")
     jobs = make_jobs(briefs, tools)
     status = workdir / "status.json"
-
-    def default_runner(job, pack, env):
-        python = os.environ.get(f"DEMO_PYTHON_{job['tool'].upper()}", sys.executable)
-        return subprocess.run([python, str(HERE.parent / "demo" / f"{job['tool']}_demo.py")], env=env).returncode
 
     runner = runner or default_runner
     for job in jobs:
@@ -58,7 +60,7 @@ def run_queue(briefs: list, tools: list, workdir: Path, runner=None) -> list:
         except Exception as error:  # a broken tool must not stop the queue
             job["exit"], job["error"] = -1, str(error)
         job["seconds"] = round(time.time() - started)
-        job["status"] = "done" if job["exit"] == 0 else "failed"
+        job["status"] = "done" if job["exit"] == 0 else "skipped" if job["exit"] == "skipped" else "failed"
         write_status(status, jobs)
         print(f"{job['tool']:<10} {job['brief']:<40} {job['status']:<7} {job['seconds']} s", flush=True)
     return jobs

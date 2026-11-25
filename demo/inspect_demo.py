@@ -16,8 +16,18 @@ pack = json.loads(Path(os.environ.get("DEMO_PACK") or Path(__file__).with_name("
 adapter = os.environ.get("DEMO_ADAPTER", "http://127.0.0.1:8000")
 os.environ.setdefault("BENCH_API_KEY", "not-needed")  # the adapter ignores the key; Inspect wants one
 
-samples = [Sample(id=o["id"], input=o["attack_message"], target=pack["judge_only"][o["id"]]["success_text"]) for o in pack["objectives"]]
-task = Task(dataset=samples, solver=[generate()], scorer=includes())  # includes() is a rough text match; the adapter's flag is the verdict
+def messages_of(o):
+    """One message (a brief with an attack_message) or several (general mode: the attacks Promptfoo wrote)."""
+    return o.get("attack_messages") or ([o["attack_message"]] if o.get("attack_message") else [])
+
+
+judged = pack["judge_only"]  # general mode has no marker text, so there is no scorer: a judge reads the replies afterwards
+samples = [Sample(id=f"{o['id']}-{i}", input=m, target=judged.get(o["id"], {}).get("success_text") or "")
+           for o in pack["objectives"] for i, m in enumerate(messages_of(o), 1)]
+if not samples:
+    raise SystemExit("no attack messages in the pack")
+has_markers = all(o["id"] in judged for o in pack["objectives"])
+task = Task(dataset=samples, solver=[generate()], scorer=includes() if has_markers else None)  # includes() is a rough text match; the verdict is elsewhere
 
 eval(task, model="openai-api/bench/" + pack["persona"]["model"], model_base_url=adapter + "/inspect." + os.environ.get("DEMO_LABEL", "demo") + "/v1",
      log_dir=str(Path(__file__).parent / "logs" / "inspect"), display="plain")

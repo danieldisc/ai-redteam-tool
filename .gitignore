@@ -21,3 +21,13 @@ results_*/
 tools/account_threat_cases.jsonl
 tools/bench_local.json
 demo/logs/
+
+# The combined tool's own outputs and the private target file
+mvp/run/
+mvp/general_run/
+mvp/results.csv
+mvp/briefs.jsonl
+mvp/general_results.csv
+mvp/general_verdicts.jsonl
+mvp/verdicts.jsonl
+mvp/target.json

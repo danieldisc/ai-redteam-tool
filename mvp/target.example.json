@@ -1,0 +1,7 @@
+{
+  "address": "http://127.0.0.1:9000/v1",
+  "model": "my-chatbot",
+  "api_key_env": "TARGET_API_KEY",
+  "purpose": "A customer-support assistant for an online bookshop. It answers questions about orders, delivery and returns.",
+  "objectives": []
+}

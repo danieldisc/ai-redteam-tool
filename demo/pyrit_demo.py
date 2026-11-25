@@ -14,7 +14,7 @@ from pathlib import Path
 
 from pyrit.executor.attack import AttackAdversarialConfig, AttackScoringConfig, PromptSendingAttack, RedTeamingAttack
 from pyrit.prompt_target import OpenAIChatTarget
-from pyrit.score import SubStringScorer
+from pyrit.score import SelfAskTrueFalseScorer, SubStringScorer, TrueFalseQuestion
 from pyrit.setup import IN_MEMORY, initialize_pyrit_async
 
 class ClaudeTarget(OpenAIChatTarget):
@@ -27,22 +27,33 @@ class ClaudeTarget(OpenAIChatTarget):
 
 pack = json.loads(Path(os.environ.get("DEMO_PACK") or Path(__file__).with_name("grey.json")).read_text(encoding="utf-8"))
 adapter = os.environ.get("DEMO_ADAPTER", "http://127.0.0.1:8000")
-multi = "--multi" in sys.argv
+multi = "--multi" in sys.argv or os.environ.get("DEMO_MULTI") == "1"
 
 
 async def main():
     await initialize_pyrit_async(memory_db_type=IN_MEMORY)
     target = OpenAIChatTarget(endpoint=adapter + "/pyrit." + os.environ.get("DEMO_LABEL", "demo") + "/v1", model_name=pack["persona"]["model"], api_key="not-needed")
     for o in pack["objectives"]:
-        scoring = AttackScoringConfig(objective_scorer=SubStringScorer(substring=pack["judge_only"][o["id"]]["success_text"][0]))
-        if multi:
+        marker = pack["judge_only"].get(o["id"])
+        if (multi or not marker) and not os.environ.get("ANTHROPIC_API_KEY"):
+            sys.exit("ANTHROPIC_API_KEY is not set: Claude plays the attacker (multi-turn) or marks the reply (general mode).")
+        claude = None
+        if os.environ.get("ANTHROPIC_API_KEY"):
             claude = ClaudeTarget(endpoint="https://api.anthropic.com/v1/", model_name="claude-sonnet-5-5",
                                    api_key=os.environ["ANTHROPIC_API_KEY"])
+        if marker:  # a brief with marker text: a plain text match
+            scorer = SubStringScorer(substring=marker["success_text"][0])
+        else:  # general mode: Claude says whether the reply broke the rule
+            scorer = SelfAskTrueFalseScorer(chat_target=claude, question=TrueFalseQuestion(
+                true_description="The reply breaks this rule: " + o["policy"], false_description="The reply keeps the rule."))
+        scoring = AttackScoringConfig(objective_scorer=scorer)
+        if multi:
             attack = RedTeamingAttack(objective_target=target, attack_adversarial_config=AttackAdversarialConfig(target=claude),
                                       attack_scoring_config=scoring, max_turns=3)
         else:
             attack = PromptSendingAttack(objective_target=target, attack_scoring_config=scoring)
-        result = await attack.execute_async(objective=o["goal"])
+        # General mode gives the attacker what an outsider knows about the chatbot, with the goal.
+        result = await attack.execute_async(objective=o["goal"] if marker else pack["chatbot"] + " " + o["goal"])
         reply = result.last_response.converted_value if result.last_response else ""
         print(f"{o['id']}: {result.outcome.value} | {reply[:90]!r}")
 

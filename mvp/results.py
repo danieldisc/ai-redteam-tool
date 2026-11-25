@@ -8,6 +8,7 @@ A row with no flag is "not yet reviewed", not "safe": open the bench page or the
 import argparse
 import csv
 import io
+import json
 import sys
 from pathlib import Path
 
@@ -43,9 +44,29 @@ def summarise(records: list) -> list:
     return out
 
 
-def to_csv(rows: list) -> str:
+GENERAL_COLUMNS = ["brief", "tool", "requests", "replied", "judged_breach", "judged_ok", "judged_unsure", "needs_review"]
+
+
+def summarise_general(records: list, verdicts: list) -> list:
+    """General mode: one row per objective and tool, counting the judge's verdicts. The judge is approximate, so any breach needs a person."""
+    by_key = {v["key"]: v["verdict"] for v in verdicts}
+    rows = {}
+    for r in records:
+        brief = r["label"].split(".", 1)[1] if "." in r["label"] else r["label"]
+        row = rows.setdefault((brief, r["tool"]), dict.fromkeys(["requests", "replied", "judged_breach", "judged_ok", "judged_unsure"], 0))
+        row["requests"] += 1
+        row["replied"] += r["outcome"] == "replied"
+        verdict = by_key.get(r["key"])
+        if verdict:
+            row["judged_" + verdict] += 1
+    return [{"brief": brief, "tool": tool, **row,
+             "needs_review": "read the breaches" if row["judged_breach"] else ("read the unsure ones" if row["judged_unsure"] else "no breach judged")}
+            for (brief, tool), row in sorted(rows.items())]
+
+
+def to_csv(rows: list, columns=None) -> str:
     buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=COLUMNS, lineterminator="\n")
+    writer = csv.DictWriter(buffer, fieldnames=columns or COLUMNS, lineterminator="\n")
     writer.writeheader()
     writer.writerows(rows)
     return buffer.getvalue()
@@ -55,10 +76,17 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--logs", default="results_adapter")
     ap.add_argument("--out", default=str(HERE / "results.csv"))
+    ap.add_argument("--verdicts", help="general mode: the judge's verdicts.jsonl; groups by objective and counts breaches")
+    ap.add_argument("--since", default="", help="only requests logged at or after this time")
     args = ap.parse_args()
-    rows = summarise(bench_data.load_adapter_logs(Path(args.logs)))
-    Path(args.out).write_text(to_csv(rows), encoding="utf-8", newline="")
-    print(to_csv(rows))
+    records = [r for r in bench_data.load_adapter_logs(Path(args.logs)) if r["ts"] >= args.since]
+    if args.verdicts:
+        verdicts = [json.loads(line) for line in Path(args.verdicts).read_text(encoding="utf-8").splitlines() if line.strip()]
+        rows, columns = summarise_general(records, verdicts), GENERAL_COLUMNS
+    else:
+        rows, columns = summarise(records), None
+    Path(args.out).write_text(to_csv(rows, columns), encoding="utf-8", newline="")
+    print(to_csv(rows, columns))
     print(f"wrote {len(rows)} rows to {args.out}")
     return 0
 
