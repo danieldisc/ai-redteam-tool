@@ -1,7 +1,7 @@
 """
 Relay to an external chatbot: the target for someone else's chatbot, reached through this server.
 
-Every attack tool still talks to this server (askdbc-relay), so the request log, the leak check and the
+Every attack tool still talks to this server (bench-relay), so the request log, the leak check and the
 reports work exactly as they do for the built-in chatbot. This option forwards each request, with the whole
 conversation so far, to an OpenAI-compatible chat endpoint and returns what it says.
 

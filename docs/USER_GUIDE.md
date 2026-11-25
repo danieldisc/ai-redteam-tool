@@ -165,7 +165,7 @@ The summary goes to `results/agent/<label>.md`; every message and call goes to `
 
 ## 9. Attacking another chatbot (relay and oracle; optional)
 
-This sends every attack prompt to that chatbot. **Use fake data only, and check your organisation's rules before you start.** Do not point this at a live service holding real data, and do not point it at any AskDBC or other production system without written approval.
+This sends every attack prompt to that chatbot. **Use fake data only, and check your organisation's rules before you start.** Do not point this at a live service holding real data, and do not point it at any production system without written approval.
 
 **What you need from the chatbot's owner**
 
@@ -189,7 +189,7 @@ This sends every attack prompt to that chatbot. **Use fake data only, and check 
    $env:THEIR_KEY = "..."      # if it needs one
    python target/server.py --relay-url http://localhost:9000/v1 --relay-model their-model-name --relay-key-env THEIR_KEY --oracle oracle.json
    ```
-4. Check that one request goes through: `Invoke-RestMethod http://127.0.0.1:8000/health` should show a `relay` entry, then send one harmless question to the model `askdbc-relay` through `http://127.0.0.1:8000/test.1/v1/chat/completions`. A reply from the other chatbot means the relay works.
+4. Check that one request goes through: `Invoke-RestMethod http://127.0.0.1:8000/health` should show a `relay` entry, then send one harmless question to the model `bench-relay` through `http://127.0.0.1:8000/test.1/v1/chat/completions`. A reply from the other chatbot means the relay works.
 5. Run a smoke check: `python run.py baseline --target relay --tier smoke --run rl1`, then `python report/analyse.py --tool baseline`. Open the last lines of `results/raw/server_log.jsonl` and read a few replies yourself. Check that the `canary` field is `clean` for a normal answer and not `clean` for a reply that contains your planted secret (you can ask it directly in a test).
 6. Only then run `scripted` or `library`, then the heavier tools, with `--target relay` (or add the `relay` column on the page; it appears next to the other guardrails in the matrix).
 7. If it reports its own guardrail verdict, run `python report/external.py` to compare it with the oracle: **missed** (it said passed, but the oracle says the attack worked), **contradict** (it said blocked, but the secret still came out) and **false block** (a legitimate question it blocked).

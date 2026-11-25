@@ -2,7 +2,7 @@
 
 An internship project for LTA's Cyber Architecture & Development (CYAD) division. It attacks one deliberately weak chatbot
 with five open-source red-teaming tools (Garak, Giskard, Inspect AI, PyRIT, Promptfoo), with and without different guardrails,
-and compares what each tool finds. This is a proof of concept. It is not connected to AskDBC or any real LTA document.
+and compares what each tool finds. This is a proof of concept. It is not connected to any real LTA system or document.
 
 ## In short
 

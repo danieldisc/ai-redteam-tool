@@ -6,7 +6,7 @@ Garak and Giskard allow, so it cannot share their environment. This small
 provider talks to the same /chat/completions endpoint with httpx instead, so
 Inspect can live in the main environment.
 
-Use as model "askdbc/<askdbc-unguarded|askdbc-guarded>" with model_base_url set
+Use as model "bench/<bench-unguarded|bench-guarded>" with model_base_url set
 to http://127.0.0.1:8000/<tag>/v1. Text only: no tool calling.
 """
 
@@ -14,13 +14,13 @@ import httpx
 from inspect_ai.model import GenerateConfig, ModelAPI, ModelOutput, modelapi
 
 
-@modelapi(name="askdbc")
-def askdbc():
-    class AskDBCAPI(ModelAPI):
+@modelapi(name="bench")
+def bench():
+    class BenchAPI(ModelAPI):
         def __init__(self, model_name, base_url=None, api_key=None, config=GenerateConfig(), **model_args):
             super().__init__(model_name, base_url, api_key, [], config)
             if not base_url:
-                raise ValueError("askdbc provider needs model_base_url, e.g. http://127.0.0.1:8000/inspect.run1/v1")
+                raise ValueError("bench provider needs model_base_url, e.g. http://127.0.0.1:8000/inspect.run1/v1")
 
         async def generate(self, input, tools, tool_choice, config):
             messages = [{"role": m.role, "content": m.text} for m in input if m.role in ("system", "user", "assistant")]
@@ -32,4 +32,4 @@ def askdbc():
             response.raise_for_status()
             return ModelOutput.from_content(self.model_name, response.json()["choices"][0]["message"]["content"])
 
-    return AskDBCAPI
+    return BenchAPI

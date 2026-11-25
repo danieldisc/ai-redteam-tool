@@ -33,7 +33,7 @@ def check(name, ok):
 
 
 def row(tag, guardrail, question, response="Sorry.", canary="clean", retrieved=("doc1",), dropped=(), docs="clean"):
-    model = f"askdbc-{guardrail}" + ("_poisoned" if docs == "poisoned" else "")
+    model = f"bench-{guardrail}" + ("_poisoned" if docs == "poisoned" else "")
     return {"tag": tag, "model": model, "docs": docs, "question": question, "response": response, "canary": canary,
             "retrieved_ids": list(retrieved), "dropped_ids": list(dropped), "blocked_by": "none", "stub": False, "ts": "t"}
 

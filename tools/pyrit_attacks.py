@@ -5,12 +5,12 @@ the target over HTTP like every other tool. Started by tools/pyrit_run.py; not
 meant to be run by hand, but it can be:
 
     venv-pyrit/bin/python tools/pyrit_attacks.py --url http://127.0.0.1:8000/pyrit.r1/v1 \
-        --model askdbc-guarded --tier smoke --out results/raw/pyrit/x.json
+        --model bench-guarded --tier smoke --out results/raw/pyrit/x.json
 
 To try ONE multi-turn attack and see why it failed, run it by hand (see --only):
 
     venv-pyrit\\Scripts\\python tools\\pyrit_attacks.py --url http://127.0.0.1:8000/pyrit.dbg1/v1 ^
-        --model askdbc-unguarded --only red_teaming --objective 0 --turns 3 --out results\\raw\\pyrit\\dbg1.json
+        --model bench-unguarded --only red_teaming --objective 0 --turns 3 --out results\\raw\\pyrit\\dbg1.json
 
 It prints the full error or result. Every turn the attacker sends is also in the server log under the
 tag pyrit.dbg1, so the whole conversation can be read there.

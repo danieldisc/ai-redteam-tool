@@ -44,8 +44,8 @@ def chatbot_purpose() -> str:
 
 
 def model_for(target: str) -> str:
-    """The server model name for a guardrail id, e.g. blocklist -> askdbc-blocklist."""
-    return f"askdbc-{target}"
+    """The server model name for a guardrail id, e.g. blocklist -> bench-blocklist."""
+    return f"bench-{target}"
 
 
 def base_url(url: str, tag: str) -> str:

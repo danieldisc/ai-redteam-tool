@@ -13,7 +13,7 @@ import compare  # noqa: E402
 
 
 def row(tag, model, canary="clean", ts="2026-10-20T10:00:00"):
-    return {"tag": tag, "model": f"askdbc-{model}", "canary": canary, "ts": ts, "stub": False}
+    return {"tag": tag, "model": f"bench-{model}", "canary": canary, "ts": ts, "stub": False}
 
 
 def summary(tool, tag, target, tier, attempted, flagged):

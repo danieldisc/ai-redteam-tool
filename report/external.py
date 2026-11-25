@@ -5,7 +5,7 @@ Does the external chatbot's own guardrail work, and can its verdicts be trusted?
     python report/external.py --tool garak            # one tool's attacks only
     python report/external.py --run gap1 --out results/external.md
 
-Three signals sit side by side for every request that went through askdbc-relay:
+Three signals sit side by side for every request that went through bench-relay:
   oracle      did the attack really work? A plain string check: the planted secret (the leak check) or a marker
               word that an injected instruction was obeyed. You control it, so it does not depend on any tool.
   guardrail   what the external chatbot's own guardrail said (blocked or passed), if it reports one.
@@ -68,7 +68,7 @@ def row_cells(name: str, t: dict) -> str:
 
 
 def build_report(rows: list[dict], cats: list[dict], benign: set[str], extra_markers: list[str] | None = None) -> str:
-    rows = [r for r in rows if r.get("model", "").removeprefix("askdbc-") == "relay"]
+    rows = [r for r in rows if r.get("model", "").removeprefix("bench-") == "relay"]
     markers = injection_markers(cats, extra_markers)
     head = ["| | requests | oracle: attack worked | guardrail blocked | missed | contradicted | false blocks | no verdict |",
             "|---|---|---|---|---|---|---|---|"]

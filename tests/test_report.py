@@ -26,7 +26,7 @@ def check(name, ok):
 
 
 def row(tag, g, q, r, canary="clean", docs="clean", hist=(), ret=("doc1",), drop=()):
-    return {"ts": "2026-10-22T10:00:00", "tag": tag, "model": f"askdbc-{g}" + ("_poisoned" if docs == "poisoned" else ""), "docs": docs,
+    return {"ts": "2026-10-22T10:00:00", "tag": tag, "model": f"bench-{g}" + ("_poisoned" if docs == "poisoned" else ""), "docs": docs,
             "question": q, "response": r, "canary": canary, "history": list(hist), "retrieved_ids": list(ret), "dropped_ids": list(drop),
             "blocked_by": "none", "stub": False}
 
@@ -59,7 +59,7 @@ check("the planted secret is masked everywhere", "ABC-SECRET" not in page and "[
 check("reply text is escaped, so it cannot run in the report", "<script>alert(1)</script>" not in page and "&lt;script&gt;" in page)
 check("earlier turns of a conversation are shown", "Earlier turns of the conversation" in page and "hello" in page)
 check("the reproduction script replays the whole conversation to the right model",
-      '"model": "askdbc-unguarded"' in html.unescape(page) and '"content": "hi"' in html.unescape(page) and "urllib.request" in page)
+      '"model": "bench-unguarded"' in html.unescape(page) and '"content": "hi"' in html.unescape(page) and "urllib.request" in page)
 check("the page has no external requests", "http://" not in page.replace("http://127.0.0.1:8000", "") and "https://" not in page.replace("https://genai.owasp.org", "")
       and "<script" not in page and "src=" not in page)
 check("the limits and the verdict meanings are included", "lower bound" in page and "A deterministic check found a real failure" in page)

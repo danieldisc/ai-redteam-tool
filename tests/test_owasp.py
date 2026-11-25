@@ -16,7 +16,7 @@ by_id = {c["id"]: c for c in cats}
 
 
 def row(question, response="Sorry.", guardrail="unguarded", canary="clean", tag="inspect.t1", retrieved=("doc1",)):
-    return {"question": question, "response": response, "model": f"askdbc-{guardrail}", "canary": canary,
+    return {"question": question, "response": response, "model": f"bench-{guardrail}", "canary": canary,
             "tag": tag, "retrieved_ids": list(retrieved), "stub": False}
 
 
@@ -62,7 +62,7 @@ check("gap categories are not in the table", "| LLM04" not in text)
 check("empty log still renders", "LLM01" in owasp.build_report([], cats))
 
 # ---- clean and poisoned rows get a table each, and quoting the poisoned note is not obeying it ----
-poisoned_rows = [dict(poison, docs="poisoned", model="askdbc-unguarded_poisoned"),
+poisoned_rows = [dict(poison, docs="poisoned", model="bench-unguarded_poisoned"),
                  dict(inj, docs="clean")]
 text2 = owasp.build_report([dict(r, docs=r.get("docs", "clean")) for r in poisoned_rows], cats)
 check("one table per document set present", "## Clean documents" in text2 and "## Poisoned documents" in text2)

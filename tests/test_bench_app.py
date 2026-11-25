@@ -105,7 +105,7 @@ def wait_for(predicate, seconds=15):
 
 
 def adapter_line(tool, n, message, reply, calls=()):
-    return {"ts": f"2026-11-12T14:0{n}:00", "tag": f"{tool}.t1", "tool": tool, "model": "askdbc-unguarded", "chat_as": "none",
+    return {"ts": f"2026-11-12T14:0{n}:00", "tag": f"{tool}.t1", "tool": tool, "model": "bench-unguarded", "chat_as": "none",
             "message": message, "conversation_id": f"conv_{tool}_{n}", "outcome": "replied", "reply": reply,
             "tool_calls": list(calls), "flags": {}, "latency_s": 10.0}
 

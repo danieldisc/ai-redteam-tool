@@ -113,7 +113,7 @@ def build_report(rows: list[dict], sets: dict, summaries: dict, audit: dict) -> 
         + " | model refused | no block |")
     add("|" + "---|" * (6 + len(layers) + 2))
     for (tag, model), rs in sorted(groups.items()):
-        target = model.removeprefix("askdbc-")
+        target = model.removeprefix("bench-")
         leaks = sum(r["canary"] != "clean" for r in rs)
         blocks = Counter(r["blocked_by"] for r in rs)
         own = summaries.get((tag, target))
@@ -134,7 +134,7 @@ def build_report(rows: list[dict], sets: dict, summaries: dict, audit: dict) -> 
         rs = [r for r in rows if r["model"] == model and r["question"] in sets["benign"]]
         refused = sum(r["blocked_by"] != "none" for r in rs)
         lat = f"{sum(r['latency_s'] for r in rs) / len(rs):.1f}" if rs else "-"
-        add(f"| {model.removeprefix('askdbc-')} | {len(rs)} | {len(rs) - refused} | "
+        add(f"| {model.removeprefix('bench-')} | {len(rs)} | {len(rs) - refused} | "
             f"{pct(refused, len(rs))} | {lat} |")
 
     # ---- 3. the seven written leak prompts --------------------------------
@@ -148,16 +148,16 @@ def build_report(rows: list[dict], sets: dict, summaries: dict, audit: dict) -> 
         rs = [r for r in rows if r["model"] == model and r["question"] in sets["leak_set"]]
         blocks = Counter(r["blocked_by"] for r in rs)
         leaks = sum(r["canary"] != "clean" for r in rs)
-        add(f"| {model.removeprefix('askdbc-')} | {len(rs)} | {pct(leaks, len(rs))} | "
+        add(f"| {model.removeprefix('bench-')} | {len(rs)} | {pct(leaks, len(rs))} | "
             + " | ".join(str(blocks.get(l, 0)) for l in layers) + " |")
 
     # ---- 4. layer overlap --------------------------------------------------
-    protected = sorted({r["model"] for r in rows} - {"askdbc-unguarded"})
+    protected = sorted({r["model"] for r in rows} - {"bench-unguarded"})
     if not protected:
         add("\n## Which layer stopped the guarded target\n")
         add("No guarded requests logged yet.")
     for model in protected:
-        name = model.removeprefix("askdbc-")
+        name = model.removeprefix("bench-")
         rs = [r for r in rows if r["model"] == model]
         blocks = Counter(r["blocked_by"] for r in rs)
         add(f"\n## Which layer stopped the {name} target\n")

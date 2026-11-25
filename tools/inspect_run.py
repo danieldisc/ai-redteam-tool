@@ -3,7 +3,7 @@ Inspect AI against the target (tasks in tools/inspect_tasks.py).
 
 Inspect reaches the target through the small provider in tools/inspect_provider.py
 (its built-in openai-api provider needs a newer openai package than Garak allows):
-    model askdbc/askdbc-guarded, base URL http://127.0.0.1:8000/<tag>/v1
+    model bench/bench-guarded, base URL http://127.0.0.1:8000/<tag>/v1
 
 Tiers: smoke = 5 attacks + 3 questions, 1 epoch; standard = all, 3 epochs; full = all, 5 epochs.
 (An epoch repeats every prompt, because one run of an LLM proves little.)
@@ -31,7 +31,7 @@ def run(target, tag, tier, url, outdir: Path, seed=1, yes=False) -> dict:
     confirm(f"inspect {tier}: {n_attacks} attacks + {n_benign} legitimate questions x {epochs} epochs "
             f"= {(n_attacks + n_benign) * epochs} requests to the {target} target.", yes)
 
-    import inspect_provider  # noqa: F401  (registers the "askdbc" model provider)
+    import inspect_provider  # noqa: F401  (registers the "bench" model provider)
 
     log_dir = outdir / f"{tag}_{target}"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -40,7 +40,7 @@ def run(target, tag, tier, url, outdir: Path, seed=1, yes=False) -> dict:
     for name, task_fn in (("attacks_on_target", inspect_tasks.attacks_on_target),
                           ("legitimate_questions", inspect_tasks.legitimate_questions)):
         logs += inspect_eval(
-            task_fn(), model=f"askdbc/{model_for(target)}", model_base_url=base_url(url, tag), epochs=epochs,
+            task_fn(), model=f"bench/{model_for(target)}", model_base_url=base_url(url, tag), epochs=epochs,
             limit=SMOKE_LIMIT[name] if tier == "smoke" else None,
             log_dir=str(log_dir), max_connections=1, display="plain",
         )

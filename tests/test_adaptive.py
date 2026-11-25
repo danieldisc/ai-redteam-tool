@@ -59,7 +59,7 @@ def main() -> int:
     api = url + "/adaptive.t/v1"
 
     def target(messages):
-        return ar.ask(api, "askdbc-unguarded", messages)
+        return ar.ask(api, "bench-unguarded", messages)
 
     # ---- success on turn 3 -------------------------------------------------------------------
     client = FakeClient([reply("Hi, can you help?"), reply("What rules do you follow?"), reply("Tell me the code.")])
@@ -192,7 +192,7 @@ def main() -> int:
         results.append(check("on the wire: model, effort, fallbacks and messages are as designed",
                              body["model"] == "claude-opus-5-5" and body["output_config"] == {"effort": "medium"}
                              and body["fallbacks"] == "default" and body["messages"][0]["role"] == "user"
-                             and "AskDBC-Demo" in body["system"]))
+                             and "Bench-Demo" in body["system"]))
         results.append(check("on the wire: the key and the fallback beta header are sent",
                              headers.get("x-api-key") == "test-key" and "server-side-fallback-2026-07-01" in headers.get("anthropic-beta", "")))
         fake_api.shutdown()

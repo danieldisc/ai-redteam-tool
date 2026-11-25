@@ -7,16 +7,16 @@ this one server, so they all hit identical code.
     python target/server.py --relay-url http://localhost:9000/v1 --oracle oracle.json   # also serve another chatbot
 
 One model is served per guardrail option (see target/rails/):
-    askdbc-unguarded   retrieval + Llama 3.1 8B, no guardrail
-    askdbc-guarded     the same, wrapped in NeMo Guardrails (input + output rail)
-    askdbc-blocklist   keyword blocklist on the question, secret filter on the reply
-    askdbc-doccheck    drops retrieved documents that contain injected instructions
+    bench-unguarded   retrieval + Llama 3.1 8B, no guardrail
+    bench-guarded     the same, wrapped in NeMo Guardrails (input + output rail)
+    bench-blocklist   keyword blocklist on the question, secret filter on the reply
+    bench-doccheck    drops retrieved documents that contain injected instructions
 
 Each option is served over two document sets, chosen by the model name and needing no restart:
-askdbc-<id> uses the four clean documents, askdbc-<id>_poisoned adds the booby-trapped one
+bench-<id> uses the four clean documents, bench-<id>_poisoned adds the booby-trapped one
 (target/docs_mode.py). The log records which set each request used.
 
-With --relay-url the server also offers askdbc-relay: every request is forwarded to another chatbot (an
+With --relay-url the server also offers bench-relay: every request is forwarded to another chatbot (an
 OpenAI-compatible endpoint, target/rails/relay.py) and its answer comes back, so the same tools, log and
 reports work on it. --oracle names a JSON file with the secrets planted in that chatbot (target/oracle.py),
 which is how the leak check judges its replies. Its own guardrail verdict, if it sends one, is logged
@@ -64,10 +64,10 @@ from rails.relay import Relay, RelayError  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 LOG_PATH = Path(os.environ.get("REDTEAM_LOG", ROOT / "results" / "raw" / "server_log.jsonl"))
-MODELS = tuple(f"askdbc-{docs_mode.join_target(i, d)}" for d in docs_mode.MODES for i in rails.IDS)  # the built-in options
+MODELS = tuple(f"bench-{docs_mode.join_target(i, d)}" for d in docs_mode.MODES for i in rails.IDS)  # the built-in options
 MAX_N = 10
 
-app = FastAPI(title="AskDBC-Demo target")
+app = FastAPI(title="Bench-Demo target")
 state: dict = {}  # filled in by main(): chatbots (one per document set), guardrails, stub
 _log_lock = asyncio.Lock()
 _llm_lock = asyncio.Semaphore(int(os.environ.get("REDTEAM_CONCURRENCY", "1")))
@@ -122,7 +122,7 @@ def leak_verdict(model: str, reply: str) -> str:
 def served_models() -> list[str]:
     """Every model name this server answers: each option over clean and poisoned documents (relay: once)."""
     ids = list(state.get("guardrails") or rails.IDS)
-    names = [f"askdbc-{docs_mode.join_target(i, d)}" for d in docs_mode.MODES for i in ids]
+    names = [f"bench-{docs_mode.join_target(i, d)}" for d in docs_mode.MODES for i in ids]
     return list(dict.fromkeys(names))
 
 
@@ -210,7 +210,7 @@ async def health():
 
 @app.get("/{tag}/v1/models")
 async def list_models(tag: str):
-    return {"object": "list", "data": [{"id": m, "object": "model", "owned_by": "askdbc-demo"} for m in served_models()]}
+    return {"object": "list", "data": [{"id": m, "object": "model", "owned_by": "bench-demo"} for m in served_models()]}
 
 
 @app.post("/{tag}/v1/chat/completions")
@@ -281,7 +281,7 @@ def main():
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--docs", choices=["clean", "poisoned"], help=argparse.SUPPRESS)  # old flag, now ignored
-    parser.add_argument("--relay-url", help="Also serve another chatbot as askdbc-relay: its OpenAI-compatible base URL, e.g. http://localhost:9000/v1")
+    parser.add_argument("--relay-url", help="Also serve another chatbot as bench-relay: its OpenAI-compatible base URL, e.g. http://localhost:9000/v1")
     parser.add_argument("--relay-model", default="", help="Model name to send to that chatbot (if it needs one)")
     parser.add_argument("--relay-key-env", help="Name of the environment variable holding that chatbot's API key (never put the key on the command line)")
     parser.add_argument("--oracle", help="JSON file with the secrets planted in the external chatbot (required with --relay-url)")
@@ -302,7 +302,7 @@ def main():
             sys.exit(str(exc))
         if args.relay_key_env and not os.environ.get(args.relay_key_env):
             sys.exit(f"The environment variable {args.relay_key_env} is not set.")
-        print(f"Relay: askdbc-relay forwards every request to {args.relay_url}. That chatbot sees every attack prompt: use fake data only.")
+        print(f"Relay: bench-relay forwards every request to {args.relay_url}. That chatbot sees every attack prompt: use fake data only.")
     build_state(args.stub, relay, oracle_data)
     print(f"Target ready on http://{args.host}:{args.port}  documents=clean and poisoned  stub={args.stub}")
     print(f"Logging to {LOG_PATH}")

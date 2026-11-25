@@ -36,7 +36,7 @@ LOCAL = {"policy_texts": [RULE_TEXT], "tool_names": ["look_up_own", "look_up_ite
 
 
 def adapter_line(tool, n, message, reply, calls=(), outcome="replied", latency=10.0, with_id=True, flags=None):
-    return {"ts": f"2026-11-12T14:0{n}:00", "tag": f"{tool}.t1", "tool": tool, "model": "askdbc-unguarded",
+    return {"ts": f"2026-11-12T14:0{n}:00", "tag": f"{tool}.t1", "tool": tool, "model": "bench-unguarded",
             "chat_as": "none", "case": None, "history_mode": "last", "replayed_turns": 1, "message": message,
             "conversation_id": f"conv_{tool}_{n}" if with_id else None, "outcome": outcome, "reply": reply,
             "tool_calls": list(calls), "flags": flags or {}, "latency_s": latency}

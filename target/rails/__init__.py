@@ -1,5 +1,5 @@
 """
-Guardrail options for the target. Each option is one model name, askdbc-<id>.
+Guardrail options for the target. Each option is one model name, bench-<id>.
 
     unguarded   no guardrail
     guarded     NeMo Guardrails (the id is kept so earlier logs and results still match)
@@ -18,7 +18,7 @@ IDS = ("unguarded", "guarded", "blocklist", "doccheck")
 
 def build_registry(chatbot, nemo_llm=None, relay=None) -> dict:
     """Build every option. NeMo is built here too, so a missing NeMo install fails at start-up.
-    relay: an optional relay.Relay for an external chatbot, served as askdbc-relay."""
+    relay: an optional relay.Relay for an external chatbot, served as bench-relay."""
     from .blocklist import Blocklist
     from .doc_check import DocCheck
     from .nemo_guard import NeMoGuard

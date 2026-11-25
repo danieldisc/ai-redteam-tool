@@ -26,7 +26,7 @@ Standard library only. Python 3.10+.
     python tools\\bench_adapter.py --log-dir results_adapter
     python tools\\bench_adapter.py summarise results_adapter
 
-Model names the tools can use: askdbc-unguarded (default person), askdbc-as-none, askdbc-as-<persona id>.
+Model names the tools can use: bench-unguarded (default person), bench-as-none, bench-as-<persona id>.
 The local file's absence turns the leak checks and the write-tool check off (the adapter says so when it starts).
 System messages sent by a tool are ignored: content may enter only as a user could type it.
 By default only the LAST user message is sent. With --history replay, earlier user messages of the request are sent
@@ -209,7 +209,7 @@ class Adapter:
         if not users:
             raise Refused("the request has no user message")
         chat_as = self.chat_as
-        m = re.fullmatch(r"askdbc-as-(.+)", model or "")
+        m = re.fullmatch(r"bench-as-(.+)", model or "")
         if m and re.fullmatch(PERSONA_PATTERN, m.group(1)):
             chat_as = m.group(1)
         to_send = users if self.history == "replay" else users[-1:]
@@ -273,7 +273,7 @@ def make_handler(adapter):
                                  "leak_checks": CONFIG_STATE["loaded"]}})
             if re.fullmatch(r"/[^/]+/v1/models", self.path):
                 return self.send_json(200, {"object": "list", "data": [
-                    {"id": "askdbc-unguarded", "object": "model", "owned_by": "bench-adapter"}]})
+                    {"id": "bench-unguarded", "object": "model", "owned_by": "bench-adapter"}]})
             self.send_json(404, {"error": {"message": "not found"}})
 
         def do_POST(self):
@@ -284,7 +284,7 @@ def make_handler(adapter):
                 body = json.loads(self.rfile.read(int(self.headers.get("content-length") or 0)) or b"{}")
             except ValueError:
                 return self.send_json(400, {"error": {"message": "invalid JSON"}})
-            tag, model = m.group(1), body.get("model") or "askdbc-unguarded"
+            tag, model = m.group(1), body.get("model") or "bench-unguarded"
             case = (self.headers.get("x-redteam-case") or "")[:40] or None
             n = max(1, min(int(body.get("n") or 1), 5))
             replies, finish = [], "stop"

@@ -35,8 +35,8 @@ check("a plain id is clean", dm.split_target("doccheck") == ("doccheck", "clean"
 check("a _poisoned id is poisoned", dm.split_target("doccheck_poisoned") == ("doccheck", "poisoned"))
 check("join and split round-trip", dm.split_target(dm.join_target("guarded", "poisoned")) == ("guarded", "poisoned")
       and dm.join_target("guarded", "clean") == "guarded")
-check("a model name gives its target and guardrail", dm.target_of("askdbc-blocklist_poisoned") == "blocklist_poisoned"
-      and dm.guardrail_of("askdbc-blocklist_poisoned") == "blocklist")
+check("a model name gives its target and guardrail", dm.target_of("bench-blocklist_poisoned") == "blocklist_poisoned"
+      and dm.guardrail_of("bench-blocklist_poisoned") == "blocklist")
 
 avail = ["unguarded", "guarded", "blocklist", "doccheck"]
 check("run.py: --target all is clean by default", run.pick_targets("all", avail) == avail)
@@ -90,19 +90,19 @@ else:
     with tempfile.TemporaryDirectory() as tmp:
         server.LOG_PATH = Path(tmp) / "log.jsonl"
         server.state.update(chatbots={"clean": Bot("clean"), "poisoned": Bot("poisoned")}, guardrails={"unguarded": Echo()}, stub=True)
-        clean = json.loads(ask("askdbc-unguarded").body)["choices"][0]["message"]["content"]
-        poisoned = json.loads(ask("askdbc-unguarded_poisoned").body)["choices"][0]["message"]["content"]
+        clean = json.loads(ask("bench-unguarded").body)["choices"][0]["message"]["content"]
+        poisoned = json.loads(ask("bench-unguarded_poisoned").body)["choices"][0]["message"]["content"]
         rows = [json.loads(line) for line in server.LOG_PATH.read_text(encoding="utf-8").splitlines()]
         check("server: a plain model name answers from the clean documents", "clean" in clean)
         check("server: a _poisoned model name answers from the poisoned documents", "poisoned" in poisoned)
         check("server: the log records the document set of each request", [r["docs"] for r in rows] == ["clean", "poisoned"])
-        check("server: the log keeps the full model name", rows[1]["model"] == "askdbc-unguarded_poisoned")
+        check("server: the log keeps the full model name", rows[1]["model"] == "bench-unguarded_poisoned")
         offered = server.served_models()
-        check("server: both sets are offered for every built-in guardrail", "askdbc-doccheck_poisoned" in server.MODELS and "askdbc-doccheck" in server.MODELS
+        check("server: both sets are offered for every built-in guardrail", "bench-doccheck_poisoned" in server.MODELS and "bench-doccheck" in server.MODELS
               and len(server.MODELS) == 2 * len(server.rails.IDS))
-        check("server: with only the registered option, only its two names are offered", offered == ["askdbc-unguarded", "askdbc-unguarded_poisoned"])
+        check("server: with only the registered option, only its two names are offered", offered == ["bench-unguarded", "bench-unguarded_poisoned"])
         try:
-            ask("askdbc-unguarded_other")
+            ask("bench-unguarded_other")
             check("server: an unknown model is refused", False)
         except HTTPException as exc:
             check("server: an unknown model is refused", exc.status_code == 404)

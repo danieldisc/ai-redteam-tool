@@ -14,7 +14,7 @@ class Result(NamedTuple):
 
 
 class Guardrail:
-    """One option. The server serves it as the model askdbc-<id>."""
+    """One option. The server serves it as the model bench-<id>."""
 
     id = ""
     label = ""

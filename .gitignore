@@ -20,3 +20,4 @@ results/owasp.md
 results_*/
 tools/account_threat_cases.jsonl
 tools/bench_local.json
+demo/logs/

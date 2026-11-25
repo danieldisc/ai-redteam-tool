@@ -1,4 +1,4 @@
-# NVIDIA NeMo Guardrails config for the AskDBC-Demo target.
+# NVIDIA NeMo Guardrails config for the Bench-Demo target.
 # Uses only NeMo's built-in rails (no custom code):
 #   - self check input : LLM-based input rail, prompt in prompts.yml
 #   - regex check output : deterministic output rail for the planted secret

@@ -19,7 +19,7 @@ That makes the tools comparable, because they all hit identical code and are jud
  ─────────────────                                          ──────────────────────────────────
  Garak  Giskard  Inspect AI  PyRIT  Promptfoo               target/server.py  (FastAPI, port 8000)
  baseline  scripted  library  adaptive (Claude)    ──HTTP──>   │  one model name per option:
-        (tools/*_run.py, started by run.py)                    │  askdbc-<guardrail>[_poisoned]
+        (tools/*_run.py, started by run.py)                    │  bench-<guardrail>[_poisoned]
                                                                ▼
                                                       target/rails/  unguarded | NeMo | blocklist | doccheck | relay
                                                                │                                          │
@@ -43,7 +43,7 @@ its own results under `results/agent/`.
 
 | Design area (work plan) | Where it is | Notes |
 |---|---|---|
-| Target management | `target/server.py`, `target/rails/`, `target/docs_mode.py`, `target/config/` | A target is a model name `askdbc-<guardrail>[_poisoned]`. An external chatbot is the `relay` guardrail, set by flags or by `PUT /admin/relay`. |
+| Target management | `target/server.py`, `target/rails/`, `target/docs_mode.py`, `target/config/` | A target is a model name `bench-<guardrail>[_poisoned]`. An external chatbot is the `relay` guardrail, set by flags or by `PUT /admin/relay`. |
 | Test engine | `run.py` | Validates the target, tags the run (`<tool>.<label>`), calls the tool runner, saves a summary. |
 | Execution engine | `tools/*_run.py` | One runner per attack source with one signature (section 5). `ui/app.py` queues them as separate processes, one at a time. |
 | OWASP modules | `attacks/owasp.json` | One entry per category: which requests belong to it, what counts as success, severity, impact, remediation, ATLAS and references. Data, not code. |
@@ -64,8 +64,8 @@ poisoning tests. It is deliberately weak, so that attacks have something to find
 `target/server.py` exposes it as an OpenAI-style chat endpoint, `POST /<tag>/v1/chat/completions`, and `GET /<tag>/v1/models`, `GET /health`.
 The `<tag>` in the path is `<tool>.<run label>`; it changes nothing about the answer and exists only to label the request in the log.
 
-- **One model name per option.** `askdbc-unguarded`, `askdbc-guarded` (NeMo; the id is kept so older logs match), `askdbc-blocklist`,
-  `askdbc-doccheck`, each with an optional `_poisoned` suffix, and `askdbc-relay` when an external chatbot is connected. Choosing the document set
+- **One model name per option.** `bench-unguarded`, `bench-guarded` (NeMo; the id is kept so older logs match), `bench-blocklist`,
+  `bench-doccheck`, each with an optional `_poisoned` suffix, and `bench-relay` when an external chatbot is connected. Choosing the document set
   by model name means every tool carries the choice without any change, and there is no restart (`target/docs_mode.py`).
 - **Client system messages are dropped**, as a real chatbot would not let a user replace its system prompt. `max_tokens`, `temperature` and `stop`
   are ignored so every option answers with the model's own defaults. Tool calling is not supported.
@@ -193,7 +193,7 @@ The Developer Guide gives the steps.
 - **Two virtual environments.** PyRIT needs a newer `datasets` package than Garak allows.
 - **Standard library for the web page and reports.** Fewer dependencies to install, nothing to break between tools.
 - **Local model only by default.** No data leaves the machine, which suits a restricted network. The adaptive attacker is the one paid, external exception, and is off by default.
-- **Fake data only.** The chatbot, its secret and its documents are made up. Nothing here is connected to AskDBC or any real LTA document.
+- **Fake data only.** The chatbot, its secret and its documents are made up. Nothing here is connected to any real LTA system or document.
 
 ## 12. Limits of the design
 

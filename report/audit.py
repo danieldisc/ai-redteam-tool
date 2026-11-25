@@ -74,7 +74,7 @@ def main():
     args = parser.parse_args()
 
     rows = [r for r in load_log(args.log)
-            if r["tag"] == args.tag and r["model"] == f"askdbc-{args.target}"
+            if r["tag"] == args.tag and r["model"] == f"bench-{args.target}"
             and (args.include_stub or not r.get("stub"))]
     if not rows:
         print(f"No non-stub requests for tag {args.tag!r} on {args.target}.")

@@ -125,7 +125,7 @@ A new *kind* of success rule (not just new words) needs a few lines in `succeede
 1. Write a class in `target/rails/` that subclasses `Guardrail` (`base.py`): set `id`, `label`, `description`, and implement `async answer(self, chatbot, history, question) -> Result(reply, ids, blocked_by, dropped_ids, external)`. Use `chatbot.retrieve_docs`, `chatbot.build_messages`, `chatbot.llm` and `chatbot.answer`; run blocking calls with `asyncio.to_thread`.
 2. Add the id to `IDS` and the class to `build_registry()` in `target/rails/__init__.py` (the two must agree, or start-up fails on purpose).
 3. Add a card to `GUARDRAIL_INFO` in `ui/app.py` and, if you want a fixed column position, to `GUARDRAIL_ORDER` in `report/compare.py` and the label in `GUARDRAIL_LABELS` in `report/pentest_report.py`.
-4. Add checks to `tests/test_rails.py`. Restart the server: it is served as `askdbc-<id>` and `askdbc-<id>_poisoned`.
+4. Add checks to `tests/test_rails.py`. Restart the server: it is served as `bench-<id>` and `bench-<id>_poisoned`.
 
 Use `blocked_by` values the reports already know (`blocklist_input`, `model_refused`, `none` and so on) or add the new one where `report/analyse.py` counts them.
 

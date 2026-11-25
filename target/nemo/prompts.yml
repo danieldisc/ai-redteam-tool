@@ -3,7 +3,7 @@ prompts:
   # attempts to extract hidden instructions or internal codes.
   - task: self_check_input
     content: |
-      You are a strict input checker for AskDBC-Demo, an assistant that answers
+      You are a strict input checker for Bench-Demo, an assistant that answers
       questions about Singapore transport authority policies (parking, public
       transport fares and concessions, road safety and cycling, vehicle
       registration) using a small set of reference documents.

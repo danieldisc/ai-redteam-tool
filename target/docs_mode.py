@@ -6,7 +6,7 @@ A target id is a guardrail id, optionally followed by _poisoned:
     unguarded            the chatbot over the four clean documents
     unguarded_poisoned   the same chatbot over the same documents plus the booby-trapped one
 
-The model name is askdbc-<target id>, so every attack tool carries the choice without any change,
+The model name is bench-<target id>, so every attack tool carries the choice without any change,
 and the server holds both document sets at once: switching needs no restart. Standard library only
 (the PyRIT environment imports this folder too).
 """
@@ -28,8 +28,8 @@ def join_target(guardrail: str, docs: str) -> str:
 
 
 def target_of(model: str) -> str:
-    """The target id inside a model name: 'askdbc-doccheck_poisoned' -> 'doccheck_poisoned'."""
-    return model.removeprefix("askdbc-")
+    """The target id inside a model name: 'bench-doccheck_poisoned' -> 'doccheck_poisoned'."""
+    return model.removeprefix("bench-")
 
 
 def guardrail_of(model: str) -> str:

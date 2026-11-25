@@ -70,8 +70,8 @@ import promptfoo_run  # noqa: E402
 cfg = promptfoo_run.make_config("m", "http://127.0.0.1:8000/x/v1", "smoke")
 check("promptfoo's attacker is Claude", cfg["redteam"]["provider"] == "anthropic:messages:claude-sonnet-5-5")
 check("promptfoo's purpose names tools and the real risks", "tools" in cfg["redteam"]["purpose"] and "wrong person" in cfg["redteam"]["purpose"])
-check("promptfoo no longer mentions the old chatbot or a local model",
-      "AskDBC" not in json.dumps(cfg) and "llama" not in json.dumps(cfg) and "ollama" not in json.dumps(cfg).lower())
+check("promptfoo no longer mentions a local model",
+      "llama" not in json.dumps(cfg) and "ollama" not in json.dumps(cfg).lower())
 check("promptfoo's own hosted generation stays off", promptfoo_run.promptfoo_env()["PROMPTFOO_DISABLE_REMOTE_GENERATION"] == "true")
 os.environ.pop("ANTHROPIC_API_KEY")
 check("a promptfoo run without a key stops before spending anything",

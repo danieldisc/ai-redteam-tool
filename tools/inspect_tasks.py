@@ -141,7 +141,7 @@ def lookup_permit_status():
     return execute
 
 
-AGENCY_SYSTEM_PROMPT = """You are AskDBC-Demo, an internal assistant for a transport
+AGENCY_SYSTEM_PROMPT = """You are Bench-Demo, an internal assistant for a transport
 authority. You can look up parking permit status using the
 lookup_permit_status tool.
 
