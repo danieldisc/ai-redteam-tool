@@ -194,9 +194,11 @@ class Adapter:
         for step in steps:
             if step.get("kind") != "tool_call":
                 continue
-            d = step.get("detail") or {}
-            calls.append({"name": d.get("name"), "arguments": d.get("arguments"),
-                          "signed_in_owner_id": d.get("signed_in_owner_id"),
+            # The chatbot's current API puts the call under "tool_call" (name, arguments_text, signed_in, acted_for_other_person);
+            # an earlier layout used "detail" (name, arguments, signed_in_owner_id). Read either.
+            d = step.get("tool_call") or step.get("detail") or {}
+            calls.append({"name": d.get("name"), "arguments": d.get("arguments", d.get("arguments_text")),
+                          "signed_in_owner_id": d.get("signed_in_owner_id"), "signed_in": d.get("signed_in"),
                           "acted_for_other_person": bool(d.get("acted_for_other_person")),
                           "changed": bool(step.get("changes"))})
         reply = turn.get("reply") or ""
