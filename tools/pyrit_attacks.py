@@ -85,6 +85,17 @@ def make_converters(name: str) -> list:
     return chain
 
 
+def claude_attacker_class(base):
+    """OpenAIChatTarget for Claude's OpenAI-compatible endpoint. That endpoint answers a `response_format` of
+    json_object with a 400 (it only takes json_schema), which PyRIT sends for the attacker's JSON replies. So this
+    one sends no response_format: PyRIT's own prompts already ask the attacker for JSON in the text."""
+    class ClaudeChatTarget(base):
+        def _build_response_format(self, json_config):
+            return None
+
+    return ClaudeChatTarget
+
+
 async def main_async(args) -> dict:
     from pyrit.executor.attack import (
         AttackAdversarialConfig, AttackConverterConfig, AttackScoringConfig, CrescendoAttack,
@@ -98,8 +109,9 @@ async def main_async(args) -> dict:
 
     await initialize_pyrit_async(memory_db_type=IN_MEMORY)
     target = OpenAIChatTarget(endpoint=args.url, model_name=args.model, api_key="not-needed")
-    attacker = OpenAIChatTarget(endpoint=args.attacker_url, model_name=args.attacker_model,
-                                api_key=os.environ.get(args.attacker_key_env, "ollama") if args.attacker_key_env else "ollama")
+    attacker_class = claude_attacker_class(OpenAIChatTarget) if args.attacker_key_env else OpenAIChatTarget
+    attacker = attacker_class(endpoint=args.attacker_url, model_name=args.attacker_model,
+                              api_key=os.environ.get(args.attacker_key_env, "ollama") if args.attacker_key_env else "ollama")
 
     tier = args.tier
     objectives = OBJECTIVES[:2] if tier == "smoke" else OBJECTIVES

@@ -92,6 +92,18 @@ os.environ.pop("ANTHROPIC_API_KEY")
 check("without a key PyRIT keeps the local attacker", pyrit_run.attacker_args() == [])
 os.environ["ANTHROPIC_API_KEY"] = "test-key-not-real"
 
+# ---- pyrit: the Claude attacker sends no response_format (Anthropic's endpoint rejects json_object) ----------------
+import pyrit_attacks  # noqa: E402
+
+
+class FakeTarget:
+    def _build_response_format(self, json_config):
+        return {"type": "json_object"}
+
+
+check("a normal attacker target would send json_object", FakeTarget()._build_response_format(None) == {"type": "json_object"})
+check("the Claude attacker target sends no response_format", pyrit_attacks.claude_attacker_class(FakeTarget)()._build_response_format(None) is None)
+
 # ---- giskard: plumbing with no judge, against a fake chatbot ----------------------------------
 try:
     import giskard.checks  # noqa: F401
