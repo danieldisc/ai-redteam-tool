@@ -2,7 +2,7 @@
 
 Use its own virtual environment: PyRIT's packages clash with Garak's.
 
-    pip install pyrit==1.1.0
+    pip install pyrit==1.2.1
     python demo/pyrit_demo.py            # single-turn, no AI model needed
     python demo/pyrit_demo.py --multi    # multi-turn with Claude as attacker; start the adapter with --history replay
 """

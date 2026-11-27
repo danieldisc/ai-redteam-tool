@@ -47,16 +47,16 @@ The persona is carried in the model name, `bench-as-OWN-007`, so every tool chat
 
 ## Run each tool
 
-Give each tool its own virtual environment, because their packages clash. Inspect AI in particular needs a newer `openai` than the one
-Garak and Giskard allow, and `agent-client-protocol==0.12.1` (version 1.0 breaks it); a plain `pip install inspect-ai` fails on both. Install, then run:
+Give each tool its own virtual environment, because their packages clash (Inspect AI needs a newer `openai` than Garak and Giskard allow).
+The versions below are the latest releases, checked on 27 November 2026. Install, then run:
 
 | Tool | Install | Run |
 |---|---|---|
-| Inspect AI | `pip install inspect-ai==0.3.276 agent-client-protocol==0.12.1 "openai>=3.1.0"` | `python demo/inspect_demo.py` |
-| Giskard | `pip install "giskard[anthropic]"` | `python demo/giskard_demo.py` |
-| PyRIT | `pip install pyrit==1.1.0` | `python demo/pyrit_demo.py` |
+| Inspect AI | `pip install inspect-ai==0.3.292 openai` | `python demo/inspect_demo.py` |
+| Giskard | `pip install "giskard[anthropic]==3.0.1"` | `python demo/giskard_demo.py` |
+| PyRIT | `pip install pyrit==1.2.1` | `python demo/pyrit_demo.py` |
 | Promptfoo | `pip install pyyaml`, and Node.js 20 or newer | `python demo/promptfoo_demo.py` |
-| Garak | `pip install garak==0.17.0` (large) | `python demo/garak_demo.py` |
+| Garak | `pip install garak==0.17.1` (large: it pulls in PyTorch) | `python demo/garak_demo.py` |
 
 Or all five in turn, one after another:
 

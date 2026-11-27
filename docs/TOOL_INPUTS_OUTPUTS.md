@@ -1,11 +1,15 @@
 # Inputs and outputs of the five tools
 
 For the whole team. It says what you give each tool, what each one produces, and which output counts. It was checked against the source
-of the pinned versions (Garak 0.17.0, Inspect AI 0.3.276, Giskard 3.0.1 (with the giskard-checks package installed alongside it), PyRIT 1.1.0, Promptfoo 0.124.0) and this
+of the pinned versions (Garak 0.17.1, Inspect AI 0.3.292, Giskard 3.0.1 (giskard-checks 1.0.7, giskard-scan 1.0.2), PyRIT 1.2.1, Promptfoo 0.126.0: the latest releases on 27 November 2026) and this
 project's runners in `tools/` and scripts in `demo/`.
 
 **How sure each fact is.** "Seen" means the file was produced and read back in a test run against a fake chatbot (not Robin's real one).
 "From code" means read from the source and the project's parser, and not run here.
+
+**Run on the latest versions (27 November 2026), against a fake chatbot:** Inspect AI 0.3.292, PyRIT 1.2.1 (single-turn) and Garak 0.17.1 (its built-in
+attack menu, 256 messages). **Need a Claude key, so not run here:** Promptfoo 0.126.0, Giskard's Claude judge and `giskard-scan`, PyRIT's multi-turn attacker,
+and Garak's GOAT. Promptfoo 0.126.0 did generate attacks with a Claude key in a real run on the user's machine.
 
 ## What the five tools are: one table
 
@@ -38,11 +42,11 @@ The table above is our demo. This one is what the tool itself ships. "Checked" m
 
 | Tool | Ready-made attacks | An AI model writes attacks | Multi-turn methods built in | Attacker model you must supply |
 |---|---|---|---|---|
-| Garak 0.17.0 | Yes: prompt files in `garak/data/` and many probes | Yes | GOAT, FITD, TAP, PAIR, and `atkgen.Tox` | No, each has a default: GOAT a local Qwen3-4B, FITD a NVIDIA-hosted Mixtral, TAP a local Ministral-8B with an OpenAI evaluator (gpt-5-nano), `atkgen` a small local GPT-2. Any can be changed to Claude in the option file |
-| Promptfoo 0.124.0 | Yes: plugins that fetch public datasets from Hugging Face at run time (for example `beavertails`, `donotanswer`, `harmbench`, `cyberseceval`, `xstest`, `toxic-chat`, `aegis`) | Yes | `crescendo`, `custom` and `jailbreak` (iterative): run from your machine with your own attacker model (`redteamProvider`) when remote generation is off. `goat`, `hydra` and `mischievous-user`: only through Promptfoo's own remote service, and they refuse to run when remote generation is off | For the local ones, yes (our demo sets Claude) |
-| PyRIT 1.1.0 | Yes: seed datasets (local and remote) and jailbreak templates | Yes | `RedTeamingAttack`, `CrescendoAttack`, `PAIRAttack`, `TAPAttack`, `ChunkedRequestAttack`, `MultiPromptSendingAttack` | Yes: the multi-turn attacks take an attacker model in their settings |
-| Giskard 3.0.1 | No: none found in the installed packages. `DatasetInputGenerator` only places a prompt that you supply | Yes: `LLMGenerator` and `UserSimulator` | `UserSimulator`: an AI model plays a user persona for up to a set number of turns (default 3), reads the earlier conversation each turn and stops when it judges the goal reached. The built-in personas are ordinary users (helpful, confused, impatient and so on), so an attacking persona has to be written by you | Yes: set a default generator |
-| Inspect AI 0.3.276 | No | No | None. Its solvers can script a fixed sequence of messages, and its agents loop a model over tools, but there is no built-in attacker that talks to a target | Not applicable |
+| Garak 0.17.1 | Yes: prompt files in `garak/data/` and many probes | Yes | GOAT, FITD, TAP, PAIR, and `atkgen.Tox` | No, each has a default: GOAT a local Qwen3-4B, FITD a NVIDIA-hosted Mixtral, TAP a local Ministral-8B with an OpenAI evaluator (gpt-5-nano), `atkgen` a small local GPT-2. Any can be changed to Claude in the option file |
+| Promptfoo 0.126.0 | Yes: plugins that fetch public datasets from Hugging Face at run time (for example `beavertails`, `donotanswer`, `harmbench`, `cyberseceval`, `xstest`, `toxic-chat`, `aegis`) | Yes | `crescendo`, `custom` and `jailbreak` (iterative): run from your machine with your own attacker model (`redteamProvider`) when remote generation is off. `goat`, `hydra` and `mischievous-user`: only through Promptfoo's own remote service, and they refuse to run when remote generation is off | For the local ones, yes (our demo sets Claude) |
+| PyRIT 1.2.1 | Yes: seed datasets (local and remote), jailbreak templates, and ready-made scenarios (`airt`, `foundry`, `garak`, `benchmark`, `adaptive`, `technique`) run by the `pyrit_scan` command | Yes | `RedTeamingAttack`, `CrescendoAttack`, `PAIRAttack`, `TAPAttack`, `ChunkedRequestAttack`, `MultiPromptSendingAttack` | Yes: the multi-turn attacks take an attacker model in their settings |
+| Giskard 3.0.1 | With the checks package alone: none. With the separate `giskard-scan` package (1.0.2): `vulnerability_scan` writes adversarial scenarios, and `third_party_scan` runs Garak or deepteam probes through it | Yes: `LLMGenerator`, `UserSimulator`, and the scan's own generators | `vulnerability_scan` defaults to multi-turn (`target_mode`). `UserSimulator` plays a user persona for a set number of turns (default 3), reads the conversation so far and stops when it judges the goal reached | Yes: a default generator must be set. The scan has no keyless mode for its LLM parts |
+| Inspect AI 0.3.292 | No | No | None. Its solvers can script a fixed sequence of messages, and its agents loop a model over tools, but there is no built-in attacker that talks to a target | Not applicable |
 
 **Promptfoo and your data.** With default settings Promptfoo uses its remote generation service when `OPENAI_API_KEY` is not set, so the chatbot description and the
 attacks would go to Promptfoo's servers. Our demo turns this off (`PROMPTFOO_DISABLE_REMOTE_GENERATION` and `PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION` set to true) and uses Claude
@@ -50,6 +54,23 @@ as the attacker, which is why `goat`, `hydra` and `mischievous-user` cannot be u
 
 **Nothing here has been run against the real chatbot.** These are facts about what each tool contains, read from its source. Whether a method finds a breach is what the
 first runs will show.
+
+### How easy is each tool to start (checked in the pinned versions)
+
+"Plug and play" here means: point it at a chatbot's address and get attacks and results without writing code.
+
+| Tool | The tool's own starting point | Code you must write | Plug and play? |
+|---|---|---|---|
+| Garak | `python -m garak --spec probes.<name> ...` and its built-in attack menu (`--probes` still works but is deprecated since 0.15.1) | None for the built-in menu. A JSON settings file for GOAT | **Yes.** Heavy install (PyTorch). Its Agent Breaker probe is off by default (`active = False`) |
+| Promptfoo | `npx promptfoo redteam init`, `redteam generate` and `eval` | A YAML config file, which `redteam init` or `redteam setup` can create | **Mostly.** Needs Node |
+| PyRIT | The `pyrit_scan` command with ready-made scenarios. It needs a running backend (`pyrit_scan start-server`), and the chatbot set through `OPENAI_CHAT_ENDPOINT`, `OPENAI_CHAT_KEY` and `OPENAI_CHAT_MODEL` | None for a ready-made scenario. A Python file for your own goals, as in our demo | **Partly.** More setup than Garak or Promptfoo. We have not run `pyrit_scan` |
+| Giskard | The `giskard-scan` package: `vulnerability_scan(target=<a Python function>, description=...)` | A short Python function that calls the chatbot | **Partly.** Our demo uses the checks package only and does not use the scan. We have not run `giskard-scan` |
+| Inspect AI | `inspect eval <file>` | A Python task file with the messages and a scorer. It writes no attacks | **No** |
+
+Notes: some of this differs from older write-ups. Giskard's `giskard.scan()` belongs to its older 2.x versions; in 3.x the scan is the separate
+`giskard-scan` package, and `giskard.scan` does not exist in the plain `giskard` 3.0.1 package. Giskard 3.0.1 sends aggregated usage metrics (to PostHog) by default: we checked that its telemetry is switched on unless
+`GISKARD_TELEMETRY_DISABLED=1` or `DO_NOT_TRACK=1` is set. Its README says no prompts or replies are included. Our Giskard demo sets both switches. A tool's install size and a first-run time of "minutes,
+hours or days" in blogs were not measured by us: in our runs, setting up Inspect AI took hours because of package clashes, not days of coding.
 
 **Inspect AI and Giskard are alike:** in both, you write every attack message, and the tool only sends it and checks the reply. They differ in
 the check. Inspect uses a plain text match and needs no Claude. Giskard asks Claude to judge, so it needs your key.
@@ -64,11 +85,11 @@ The exact install lines and versions are in `demo/README.md`. To run all five on
 
 | Tool | Install (see `demo/README.md` for the exact line) | Run | Before it runs |
 |---|---|---|---|
-| Garak | `pip install garak==0.17.0` (large) | `python demo/garak_demo.py` | For GOAT: Claude key, adapter started with `--history replay` |
+| Garak | `pip install garak==0.17.1` (large) | `python demo/garak_demo.py` | For GOAT: Claude key, adapter started with `--history replay` |
 | Promptfoo | `pip install pyyaml`, and Node.js 20 or newer | `python demo/promptfoo_demo.py` | Claude key |
-| PyRIT | `pip install pyrit==1.1.0` | `python demo/pyrit_demo.py` (add `--multi` for multi-turn) | Multi-turn: Claude key, adapter with `--history replay` |
-| Inspect AI | `pip install inspect-ai==0.3.276 agent-client-protocol==0.12.1 "openai>=3.1.0"` | `python demo/inspect_demo.py` | Nothing else |
-| Giskard | `pip install "giskard[anthropic]"` | `python demo/giskard_demo.py` | Claude key |
+| PyRIT | `pip install pyrit==1.2.1` | `python demo/pyrit_demo.py` (add `--multi` for multi-turn) | Multi-turn: Claude key, adapter with `--history replay` |
+| Inspect AI | `pip install inspect-ai==0.3.292 openai` | `python demo/inspect_demo.py` | Nothing else |
+| Giskard | `pip install "giskard[anthropic]==3.0.1"` | `python demo/giskard_demo.py` | Claude key |
 
 Always first: the chatbot running, then the adapter (`python tools/bench_adapter.py`). All five send through the adapter.
 
@@ -79,7 +100,7 @@ who is signed in: `bench-as-OWN-007`.
 
 | Tool | Format | You give it | Where it goes |
 |---|---|---|---|
-| Garak | command line and a JSON file | The built-in attacks to run. For multi-turn: a goal and an AI model | `--probes`, `--generator_option_file` (the address), `--probe_option_file` (`custom_goals`) |
+| Garak | command line and a JSON file | The built-in attacks to run. For multi-turn: a goal and an AI model | `--spec`, `--generator_option_file` (the address), `--probe_option_file` (`custom_goals`) |
 | Inspect AI | a Python file | Each attack message, and what counts as success | `Sample(input=…, target=…)`, `model_base_url` |
 | Giskard | a Python script | Each attack message, and a rule for marking the reply | `Scenario(…).interact(inputs=…).check(LLMJudge(prompt=…))` |
 | PyRIT | a Python script | One goal sentence, and text that shows it worked | `execute_async(objective=…)`, `SubStringScorer(substring=…)` |

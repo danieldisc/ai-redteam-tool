@@ -3,8 +3,7 @@
 For a Windows PC with PowerShell. Commands for Linux or macOS are given where they differ. Allow about an hour the first time, most of it downloads.
 
 > **Installing the five tools for the Guardrail Bench chatbot:** give each tool its own virtual environment and use the exact versions in
-> `demo/README.md`. Their packages clash (Inspect AI in particular needs a newer `openai` than Garak and Giskard allow, and
-> `agent-client-protocol==0.12.1`, because version 1.0 breaks it). The chatbot itself is started from the `benchproject` repository with `uv run bench start`. The steps
+> `demo/README.md`. Their packages clash (Inspect AI in particular needs a newer `openai` than Garak and Giskard allow). The chatbot itself is started from the `benchproject` repository with `uv run bench start`. The steps
 > below were written for the original demo chatbot and its Ollama model.
 
 ## 1. What you need

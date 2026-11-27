@@ -1,12 +1,16 @@
 """Giskard, barebones. Our code sends the attack message; Giskard only marks the reply, using Claude as judge.
 
-    pip install "giskard[anthropic]"
+    pip install "giskard[anthropic]==3.0.1"
     export ANTHROPIC_API_KEY=...   (PowerShell: $env:ANTHROPIC_API_KEY = "...")
     python demo/giskard_demo.py
 """
 import asyncio
 import json
 import os
+
+# Giskard may send aggregated usage metrics; switch them off (giskard.core.telemetry reads these).
+os.environ.setdefault("GISKARD_TELEMETRY_DISABLED", "1")
+os.environ.setdefault("DO_NOT_TRACK", "1")
 import urllib.request
 from pathlib import Path
 

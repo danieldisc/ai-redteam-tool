@@ -2,7 +2,7 @@
 
 Garak's normal attacks are a fixed menu, so they cannot use grey knowledge. Only its multi-turn GOAT probe takes a goal.
 
-    pip install garak==0.17.0        (large: it pulls in PyTorch)
+    pip install garak==0.17.1        (large: it pulls in PyTorch)
     python demo/garak_demo.py                 # grey: GOAT, Claude as attacker. Start the adapter with --history replay
     python demo/garak_demo.py --mode static   # control: a fixed built-in attack, no knowledge at all
 """
@@ -25,7 +25,7 @@ command = [sys.executable, "-m", "garak", "--target_type", "openai.OpenAICompati
            "--generator_option_file", str(generator), "--report_prefix", str(out / "demo"), "--generations", "1"]
 
 if mode == "static":
-    command += ["--probes", "dan.DanInTheWild"]
+    command += ["--spec", "probes.dan.DanInTheWild"]
 else:
     # Grey knowledge enters here: one goal per objective, and Claude as the attacker model.
     goat = out / "goat.json"
@@ -35,6 +35,6 @@ else:
         "red_team_model_name": "claude-sonnet-5-5",
         "max_calls_per_conv": 3}}}), encoding="utf-8")
     # A plain text-match detector, so Garak makes no call to an AI judge. Our adapter's judge decides anyway.
-    command += ["--probe_option_file", str(goat), "--probes", "goat.GOATAttack", "--detectors", "mitigation.MitigationBypass"]
+    command += ["--probe_option_file", str(goat), "--spec", "probes.goat.GOATAttack", "--detectors", "mitigation.MitigationBypass"]
 
 subprocess.run(command, env={**os.environ, "OPENAICOMPATIBLE_API_KEY": "not-needed"}, check=False)

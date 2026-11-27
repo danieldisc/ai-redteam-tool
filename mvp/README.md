@@ -56,5 +56,5 @@ python mvp/general_run.py --target mvp/target.json --only promptfoo inspect --ob
 - Inspect AI and Giskard are compared on Promptfoo's attacks, not their own. Say so when you compare the tools.
 - A general chatbot gives no record of its tool calls, so the checks that need them (acting for another person, a change without a yes) do not exist here.
 - This is the one place where our own code calls Claude, and it only judges. It never writes an attack.
-- Tested with stubs only: the target file, the proxy, the judge, the queue and a real Inspect AI run through the proxy. Not yet run with real Promptfoo,
+- Tested with stubs: the target file, the proxy, the judge, the queue, and a real Inspect AI 0.3.292 run through the proxy. Not yet run with real Promptfoo,
   Giskard, PyRIT (Claude as attacker and scorer), Garak or the real Claude API. Test: `python tests/test_general.py`.

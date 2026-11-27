@@ -22,7 +22,7 @@ out.mkdir(parents=True, exist_ok=True)
 if not os.environ.get("ANTHROPIC_API_KEY"):
     sys.exit("ANTHROPIC_API_KEY is not set: Claude writes and marks the attacks.")
 
-PROMPTFOO = ["npx", "--yes", "promptfoo@0.124.0"]
+PROMPTFOO = ["npx", "--yes", "promptfoo@0.126.0"]
 env = {**os.environ, "PROMPTFOO_DISABLE_REMOTE_GENERATION": "true", "PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION": "true",
        "PROMPTFOO_DISABLE_TELEMETRY": "1", "PROMPTFOO_DISABLE_UPDATE": "1"}
 if not shutil.which("npx") and not shutil.which("npx.cmd"):
@@ -46,13 +46,13 @@ config_path, tests_path, eval_path, results_path = (out / n for n in ("config.ya
 config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 
 # Step 1: Claude writes the attack messages.
-subprocess.run([npx, "--yes", "promptfoo@0.124.0", "redteam", "generate", "-c", str(config_path), "-o", str(tests_path),
+subprocess.run([npx, "--yes", "promptfoo@0.126.0", "redteam", "generate", "-c", str(config_path), "-o", str(tests_path),
                 "--no-cache", "--force"], env=env, cwd=out, check=True)
 # Step 2: send them to the chatbot one at a time, and let Claude mark the replies.
 tests = yaml.safe_load(tests_path.read_text(encoding="utf-8"))
 tests.pop("providers", None)
 tests["targets"] = [target]
 eval_path.write_text(yaml.safe_dump(tests, sort_keys=False), encoding="utf-8")
-subprocess.run([npx, "--yes", "promptfoo@0.124.0", "eval", "-c", str(eval_path), "-o", str(results_path), "-j", "1",
+subprocess.run([npx, "--yes", "promptfoo@0.126.0", "eval", "-c", str(eval_path), "-o", str(results_path), "-j", "1",
                 "--no-cache", "--grader", "anthropic:messages:claude-sonnet-5-5", "--no-progress-bar"], env=env, cwd=out)
 print("Promptfoo results:", results_path)

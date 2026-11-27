@@ -1,6 +1,6 @@
 """Inspect AI, barebones. We write the attack messages (from grey.json); Inspect sends them and keeps a log.
 
-    pip install inspect-ai==0.3.276 agent-client-protocol==0.12.1 "openai>=3.1.0"   (use a venv just for Inspect)
+    pip install inspect-ai==0.3.292 openai   (use a venv just for Inspect)
     python demo/inspect_demo.py
 """
 import json
