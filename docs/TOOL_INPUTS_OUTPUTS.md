@@ -62,9 +62,9 @@ first runs will show.
 | Tool | The tool's own starting point | Code you must write | Plug and play? |
 |---|---|---|---|
 | Garak | `python -m garak --spec probes.<name> ...` and its built-in attack menu (`--probes` still works but is deprecated since 0.15.1) | None for the built-in menu. A JSON settings file for GOAT | **Yes.** Heavy install (PyTorch). Its Agent Breaker probe is off by default (`active = False`) |
-| Promptfoo | `npx promptfoo redteam init`, `redteam generate` and `eval` | A YAML config file, which `redteam init` or `redteam setup` can create | **Mostly.** Needs Node |
-| PyRIT | The `pyrit_scan` command with ready-made scenarios. It needs a running backend (`pyrit_scan start-server`), and the chatbot set through `OPENAI_CHAT_ENDPOINT`, `OPENAI_CHAT_KEY` and `OPENAI_CHAT_MODEL` | None for a ready-made scenario. A Python file for your own goals, as in our demo | **Partly.** More setup than Garak or Promptfoo. We have not run `pyrit_scan` |
-| Giskard | The `giskard-scan` package: `vulnerability_scan(target=<a Python function>, description=...)` | A short Python function that calls the chatbot | **Partly.** Our demo uses the checks package only and does not use the scan. We have not run `giskard-scan` |
+| Promptfoo | `npx promptfoo redteam init`, `redteam generate` and `eval` | A YAML config file, which `redteam init` or `redteam setup` can create | **Mostly.** Needs Node.js 22.22 or newer (`engines` in its package.json). `redteam setup` opens a browser page with forms for the target, purpose, plugins and strategies |
+| PyRIT | The `pyrit_scan` command with ready-made scenarios. It needs a running backend (`pyrit_scan start-server`), and the chatbot set through `OPENAI_CHAT_ENDPOINT`, `OPENAI_CHAT_KEY` and `OPENAI_CHAT_MODEL` | None for a ready-made scenario. A Python file for your own goals, as in our demo | **Partly.** More setup than Garak or Promptfoo. It also ships a web page, Co-PyRIT (`pyrit_backend`), with screens to create a target and run scenarios. Its server uses port 8000 by default, the adapter's port: start it on another port. We have not run `pyrit_scan` or Co-PyRIT |
+| Giskard | The `giskard-scan` package: `vulnerability_scan(target=<a Python function>, description=..., languages=[...])` | A short Python function that calls the chatbot | **Partly.** Our demo uses the checks package only and does not use the scan. We have not run `giskard-scan` |
 | Inspect AI | `inspect eval <file>` | A Python task file with the messages and a scorer. It writes no attacks | **No** |
 
 Notes: some of this differs from older write-ups. Giskard's `giskard.scan()` belongs to its older 2.x versions; in 3.x the scan is the separate
@@ -86,7 +86,7 @@ The exact install lines and versions are in `demo/README.md`. To run all five on
 | Tool | Install (see `demo/README.md` for the exact line) | Run | Before it runs |
 |---|---|---|---|
 | Garak | `pip install garak==0.17.1` (large) | `python demo/garak_demo.py` | For GOAT: Claude key, adapter started with `--history replay` |
-| Promptfoo | `pip install pyyaml`, and Node.js 20 or newer | `python demo/promptfoo_demo.py` | Claude key |
+| Promptfoo | `pip install pyyaml`, and Node.js 22.22 or newer | `python demo/promptfoo_demo.py` | Claude key |
 | PyRIT | `pip install pyrit==1.2.1` | `python demo/pyrit_demo.py` (add `--multi` for multi-turn) | Multi-turn: Claude key, adapter with `--history replay` |
 | Inspect AI | `pip install inspect-ai==0.3.292 openai` | `python demo/inspect_demo.py` | Nothing else |
 | Giskard | `pip install "giskard[anthropic]==3.0.1"` | `python demo/giskard_demo.py` | Claude key |

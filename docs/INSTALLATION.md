@@ -14,7 +14,7 @@ For a Windows PC with PowerShell. Commands for Linux or macOS are given where th
 | **Python 3.12** with the `py` launcher | Giskard 3 needs 3.12 or newer; NeMo Guardrails and PyRIT need 3.13 or older, so 3.12 is the one version all of them accept | `py -3.12 --version` |
 | **Git** | to clone the repository | `git --version` |
 | **Ollama** and the model `llama3.1:8b` | the chatbot being attacked, and the judge or attacker for Giskard, Promptfoo and PyRIT | `ollama list` shows `llama3.1:8b` |
-| **Node.js 20 or newer** (with `npx`) | Promptfoo only | `node --version` |
+| **Node.js 22.22 or newer** (with `npx`) | Promptfoo only (0.126.0 needs it; the older runner `tools/promptfoo_run.py` pins 0.124.0) | `node --version` |
 | Disk space | the model is about 5 GB; the two Python environments are several GB more (Garak and its dependencies are large) | |
 | Memory | enough to run an 8B model. Ollama advises at least 8 GB of RAM for models of this size; 16 GB is more comfortable | |
 | Internet, at first | to download the Python packages, the model, Promptfoo (the first `npx` run), and the small embedding model Chroma fetches the first time the chatbot starts | |
@@ -76,7 +76,7 @@ The tool looks for `venv-pyrit\Scripts\python.exe` (or `venv-pyrit/bin/python`).
 
 ## 6. Node.js for Promptfoo
 
-Install Node.js 20 or newer from <https://nodejs.org>. Nothing else is needed: the tool runs the pinned version `promptfoo@0.124.0` with `npx --yes`,
+Install Node.js 22.22 or newer from <https://nodejs.org>. Nothing else is needed: the tool runs the pinned version `promptfoo@0.124.0` with `npx --yes`,
 which downloads it on first use.
 
 ## 7. Optional: the adaptive attacker
@@ -149,7 +149,7 @@ Every run label is single-use per tool and target: use a new one (`check2`, `che
 | `The server is in --stub mode` warning | You started it with `--stub`. Restart it without the flag before collecting results. |
 | Server starts then every request fails | Ollama is not running, or the model is missing. `ollama list`. |
 | `PyRIT environment not found` | Step 5 not done, or set `PYRIT_PYTHON`. |
-| `npx not found` | Install Node.js 20 or newer and open a new terminal. |
+| `npx not found` | Install Node.js 22.22 or newer and open a new terminal. |
 | `<tag> on <target> has already been run` | Run labels are single-use. Pass a new `--run` label. |
 | `pip install` seems stuck at `Collecting fastembed` or `huggingface_hub` | You are installing from `requirements.txt`. Press Ctrl+C and install from `requirements-lock.txt` instead. |
 | `ModuleNotFoundError` for a tool | The main environment is not active (`.\venv\Scripts\Activate.ps1`), or step 4 did not finish. |

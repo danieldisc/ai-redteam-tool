@@ -55,7 +55,7 @@ The versions below are the latest releases, checked on 27 November 2026. Install
 | Inspect AI | `pip install inspect-ai==0.3.292 openai` | `python demo/inspect_demo.py` |
 | Giskard | `pip install "giskard[anthropic]==3.0.1"` | `python demo/giskard_demo.py` |
 | PyRIT | `pip install pyrit==1.2.1` | `python demo/pyrit_demo.py` |
-| Promptfoo | `pip install pyyaml`, and Node.js 20 or newer | `python demo/promptfoo_demo.py` |
+| Promptfoo | `pip install pyyaml`, and Node.js 22.22 or newer | `python demo/promptfoo_demo.py` |
 | Garak | `pip install garak==0.17.1` (large: it pulls in PyTorch) | `python demo/garak_demo.py` |
 
 Or all five in turn, one after another:

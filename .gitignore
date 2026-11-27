@@ -31,3 +31,5 @@ mvp/general_results.csv
 mvp/general_verdicts.jsonl
 mvp/verdicts.jsonl
 mvp/target.json
+mvp/review.csv
+replay_results*

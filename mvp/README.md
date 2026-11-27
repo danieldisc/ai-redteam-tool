@@ -58,3 +58,43 @@ python mvp/general_run.py --target mvp/target.json --only promptfoo inspect --ob
 - This is the one place where our own code calls Claude, and it only judges. It never writes an attack.
 - Tested with stubs: the target file, the proxy, the judge, the queue, and a real Inspect AI 0.3.292 run through the proxy. Not yet run with real Promptfoo,
   Giskard, PyRIT (Claude as attacker and scorer), Garak or the real Claude API. Test: `python tests/test_general.py`.
+
+## The hand-off: a fixed test set to replay on the guarded chatbot
+
+**Why the same message can get a different reply.** A chatbot usually picks its words with some randomness, so sending message A twice can give two
+different replies. Whether a given chatbot does this can only be tested from outside: send the same message several times and compare. The tools that
+write attacks (Promptfoo, PyRIT, Garak's GOAT) and our judge ask Claude, which also words things differently each time, and Claude's current models take
+no setting to turn that off. So running a tool again gives new attacks, and judging a reply again can give a different verdict.
+
+**What can be repeated, then:** the saved attacks. The tools write attacks once; a person marks which replies broke the rules; those attacks become a
+fixed test set; anyone can send that same test set again later, to the same chatbot or to one with guardrails, several times each, and compare how often
+each attack still breaks the rules ("3 out of 5"). The rate is the result to compare, not one reply.
+
+```bash
+python mvp/testset.py review --logs results_general --verdicts mvp/general_verdicts.jsonl --out mvp/review.csv
+```
+Open `mvp/review.csv` in Excel. It lists every judged reply, the judge's breaches first. Write `breach` or `ok` in the `your_verdict` column for each row
+you check, and save it as CSV.
+
+```bash
+python mvp/testset.py build --review mvp/review.csv --logs results_general --target mvp/target.json --out testset.json
+```
+`testset.json` holds only the rows you marked `breach`: for each, the user messages that were sent, the reply that broke the rule, the goal and the rule,
+and the chatbot's one-sentence purpose. Use the same logs and verdicts as the review sheet: the row ids come from them. This file is what you hand over.
+
+```bash
+python mvp/testset.py replay --testset testset.json --target mvp/target.json --repeats 5 --logs results_replay --out replay_results.csv
+```
+Sends every case 5 times to the chatbot in the target file, judges each reply with Claude, and writes one row per case (`breach_rate`, for example `3/5`)
+plus every reply in `replay_results.attempts.jsonl` for a person to read. Run it once on the unguarded chatbot for the baseline, then on the guarded one.
+
+For the Guardrail Bench chatbot with guardrails: start the adapter with `--guardrail-config <id> --history replay`, point the target file at it, and add
+`--one-request` (the adapter then sends each user turn itself, in one new conversation).
+
+Limits to say when you report a rate:
+- A multi-turn attack is replayed with its saved user messages. The chatbot's replies in between are new, but the attacker's later messages are not
+  rewritten to fit them, as the original attacker did. So a multi-turn replay is a fixed script, weaker than the live attack.
+- The judge is approximate: read every reply it calls breach or unsure.
+- Record the versions with the result: the test set file stores the date, the chatbot's model name and the judge model.
+
+Tested with a stub chatbot and a stub judge only (`python tests/test_general.py`). Not yet run on the real chatbot.

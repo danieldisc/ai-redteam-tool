@@ -138,7 +138,7 @@ Folders you can ignore as a user: `target/`, `tools/`, `report/`, `ui/` and `tes
 ### Quick start
 
 Set up once (two Python 3.12 environments, because PyRIT and Garak need different packages; also install [Ollama](https://ollama.com)
-with `ollama pull llama3.1:8b`, and Node.js 20+ for Promptfoo):
+with `ollama pull llama3.1:8b`, and Node.js 22.22+ for Promptfoo):
 
 ```
 py -3.12 -m venv venv
